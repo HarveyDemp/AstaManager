@@ -969,7 +969,6 @@ elif st.session_state.app_mode == "in_asta":
             prezzo_acquisto = st.number_input("Prezzo (Cr)", min_value=1, value=1)
 
         is_valid_player = (selected_display is not None) and (selected_display in options_dict)
-
         with col_btn:
             st.write("")
             if st.button("➕ Assegna", disabled=not is_valid_player):
@@ -984,6 +983,7 @@ elif st.session_state.app_mode == "in_asta":
                     if current_role_count >= max_allowed:
                         st.error(f"❌ Limite raggiunto! {squadra_dest} ha già {current_role_count}/{max_allowed} nel ruolo {player_role}.")
                     else:
+                        # 1. Registra l'acquisto nello stato locale
                         st.session_state.asta_state["giocatori_acquistati"][player_real_name] = {
                             "squadra_asta": squadra_dest,
                             "prezzo": prezzo_acquisto
@@ -992,9 +992,17 @@ elif st.session_state.app_mode == "in_asta":
                         st.session_state.asta_state["squadre"][squadra_dest]["rosa"].append({
                             "Nome": player_real_name, "Prezzo": prezzo_acquisto, "Ruolo": player_role
                         })
-                        save_asta_to_file()
-                        st.rerun()
+                        
+                        # 2. Reset dei filtri di ricerca per il prossimo giocatore
+                        st.session_state["search_filter_text"] = ""
+                        if "player_search_select" in st.session_state:
+                            st.session_state["player_search_select"] = None
 
+                        # 3. SALVATAGGIO AUTOMATICO SU SUPABASE
+                        save_asta_to_file()
+
+                        # 4. Ricarica la pagina con i dati aggiornati
+                        st.rerun()
     st.divider()
 
     # ==========================================
