@@ -46,23 +46,17 @@ def create_auth_cookie(username: str, name: str):
         "username": username,
         "name": name
     })
-
-    st.write("DEBUG: sto creando il cookie")
-
-    result = cookie_controller.set(
+    cookie_controller.set(
         COOKIE_NAME,
         token,
         max_age=60 * 60 * 24 * COOKIE_MAX_AGE_DAYS
     )
-
-    st.write("DEBUG risultato set:", result)
 
 
 def verify_auth_cookie():
     token = cookie_controller.get(COOKIE_NAME)
 
     if not token:
-        st.warning("Cookie non trovato")
         return None
 
     try:
@@ -131,12 +125,19 @@ if "username" not in st.session_state:
     st.session_state.username = None
 if "name" not in st.session_state:
     st.session_state.name = None
+if "cookie_pending" not in st.session_state:
+    st.session_state.cookie_pending = False
+
+# ---- Dopo il login, il cookie ha bisogno di un ciclo di render per essere scritto dal JS.
+#      Al ciclo successivo, cancelliamo il flag e facciamo rerun verso la vista autenticata. ----
+if st.session_state.cookie_pending:
+    st.session_state.cookie_pending = False
+    st.rerun()
 
 # ---- Prova auto-login da cookie persistente ----
 if not st.session_state.authentication_status:
     # 1. Recupera la mappa di tutti i cookie attivi dal browser
     cookies = cookie_controller.getAll()
-    st.write("DEBUG cookies:", cookies)
     
     # 2. Se il componente non ha ancora terminato la prima lettura dal browser, 
     # ferma temporaneamente l'esecuzione in attesa della sincronizzazione DOM.
@@ -213,9 +214,11 @@ if not st.session_state.authentication_status:
                                     user_row["name"]
                                 )
 
-                                st.rerun()
+                                # Non fare rerun subito: il componente JS deve completare
+                                # questo ciclo di render per scrivere il cookie nel browser.
+                                st.session_state.cookie_pending = True
 
-                if st.session_state.authentication_status:
+                if st.session_state.authentication_status and not st.session_state.cookie_pending:
                     st.rerun()
 
             # ---------------- REGISTRAZIONE ----------------
