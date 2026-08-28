@@ -34,8 +34,7 @@ st.set_page_config(
 # ==========================================
 supabase = st.connection(name="supabase_connection", type=SupabaseConnection, ttl=None)
 
-
-cookie_controller = CookieController(key="cookie_controller")
+cookie_controller = CookieController(key="fantacalcio_cookie_controller")
 
 COOKIE_NAME = "fantacalcio_auth"
 COOKIE_MAX_AGE_DAYS = 30
@@ -48,13 +47,16 @@ def create_auth_cookie(username: str, name: str):
         "name": name
     })
 
-    cookie_controller.set(
+    st.write("DEBUG: sto creando il cookie")
+
+    result = cookie_controller.set(
         COOKIE_NAME,
         token,
         max_age=60 * 60 * 24 * COOKIE_MAX_AGE_DAYS
     )
 
-    st.session_state["debug_token"] = token
+    st.write("DEBUG risultato set:", result)
+
 
 def verify_auth_cookie():
     token = cookie_controller.get(COOKIE_NAME)
@@ -210,8 +212,8 @@ if not st.session_state.authentication_status:
                                     user_row["username"],
                                     user_row["name"]
                                 )
-                                st.write("DEBUG dopo set:", cookie_controller.getAll())
-                                st.success("✅ Login effettuato con successo! Premi F5 tra qualche secondo.")
+
+                                st.rerun()
 
                 if st.session_state.authentication_status:
                     st.rerun()
