@@ -388,36 +388,6 @@ st.markdown(
         line-height: 18px !important;
         border-bottom: 1px dashed rgba(255,255,255,0.1);
     }
-
-    /* ---- GRIGLIA RESPONSIVA: le card mantengono la dimensione minima
-       e vanno a capo invece di comprimersi quando la sidebar è aperta ---- */
-    .responsive-grid {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 16px;
-    }
-    .responsive-grid > div {
-        flex: 1 1 280px;
-        min-width: 280px;
-        max-width: calc(25% - 12px);
-    }
-    /* Quando lo spazio è ridotto (sidebar aperta), le card si allargano
-       per riempire la riga con meno elementi */
-    @media (max-width: 1400px) {
-        .responsive-grid > div {
-            max-width: calc(33.333% - 12px);
-        }
-    }
-    @media (max-width: 1000px) {
-        .responsive-grid > div {
-            max-width: calc(50% - 8px);
-        }
-    }
-    @media (max-width: 650px) {
-        .responsive-grid > div {
-            max-width: 100%;
-        }
-    }
     </style>
 """,
     unsafe_allow_html=True,
@@ -1418,12 +1388,11 @@ elif st.session_state.app_mode == "in_asta":
                 st.write("**Indisponibili:**", row["Indisponibili / Squalificati"])
 
         if not formazioni_df.empty and "Squadra" in formazioni_df.columns:
-            st.markdown('<div class="responsive-grid">', unsafe_allow_html=True)
-            for _, row in formazioni_df.iterrows():
-                st.markdown('<div>', unsafe_allow_html=True)
-                render_team_pitch_fragment(row)
-                st.markdown('</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+            for i in range(0, len(formazioni_df), 4):
+                cols = st.columns(4)
+                for col_idx, (_, row) in enumerate(formazioni_df.iloc[i:i+4].iterrows()):
+                    with cols[col_idx]:
+                        render_team_pitch_fragment(row)
 
 
     # ==========================================
@@ -1484,34 +1453,6 @@ elif st.session_state.app_mode == "in_asta":
                 width: 100% !important;
                 box-sizing: border-box !important;
             }
-
-            /* ---- GRIGLIA RESPONSIVA FANTAROSE: le card vanno a capo
-               mantenendo la dimensione minima quando la sidebar è aperta ---- */
-            [class*="st-key-rose_grid"] [data-testid="stHorizontalBlock"] {
-                flex-wrap: wrap !important;
-                gap: 16px !important;
-            }
-            [class*="st-key-rose_grid"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
-                min-width: 280px !important;
-                flex: 1 1 280px !important;
-                max-width: calc(25% - 12px);
-                width: auto !important;
-            }
-            @media (max-width: 1400px) {
-                [class*="st-key-rose_grid"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
-                    max-width: calc(33.333% - 12px);
-                }
-            }
-            @media (max-width: 1000px) {
-                [class*="st-key-rose_grid"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
-                    max-width: calc(50% - 8px);
-                }
-            }
-            @media (max-width: 650px) {
-                [class*="st-key-rose_grid"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
-                    max-width: 100%;
-                }
-            }
             </style>
             """,
             unsafe_allow_html=True,
@@ -1554,127 +1495,126 @@ elif st.session_state.app_mode == "in_asta":
 
         st.divider()
 
-        # ---- Rose delle Squadre (griglia responsiva) ----
+        # ---- Rose delle Squadre (4 Colonne) ----
         role_names = {"P": "Portieri", "D": "Difensori", "C": "Centrocampisti", "A": "Attaccanti"}
         teams_items = list(st.session_state.asta_state["squadre"].items())
 
-        with st.container(key="rose_grid"):
-            for i in range(0, len(teams_items), 4):
-                cols = st.columns(4)
-                for col_idx, (team, data) in enumerate(teams_items[i:i+4]):
-                    with cols[col_idx]:
+        for i in range(0, len(teams_items), 4):
+            cols = st.columns(4)
+            for col_idx, (team, data) in enumerate(teams_items[i:i+4]):
+                with cols[col_idx]:
 
-                        color_idx = (i + col_idx) % len(CARD_BORDER_COLORS)
-                        b_color = CARD_BORDER_COLORS[color_idx]
+                    color_idx = (i + col_idx) % len(CARD_BORDER_COLORS)
+                    b_color = CARD_BORDER_COLORS[color_idx]
 
-                        with st.container(key=f"teamcard__c{color_idx}__{team}", border=True):
+                    with st.container(key=f"teamcard__c{color_idx}__{team}", border=True):
 
-                            c_title, c_edit, c_del = st.columns([5, 1, 1])
-                            c_title.markdown(
-                                f"<div style='color:{b_color}; font-size: 1.1rem; font-weight: bold; padding-top: 4px;'> {team}</div>",
-                                unsafe_allow_html=True,
-                            )
+                        c_title, c_edit, c_del = st.columns([5, 1, 1])
+                        c_title.markdown(
+                            f"<div style='color:{b_color}; font-size: 1.1rem; font-weight: bold; padding-top: 4px;'> {team}</div>",
+                            unsafe_allow_html=True,
+                        )
 
-                            with c_edit:
-                                with st.container(key=f"iconbtn__edit__{team}"):
-                                    if st.button("✏️", key=f"edit_btn_{team}"):
-                                        st.session_state.editing_team = team if st.session_state.editing_team != team else None
-                                        st.rerun()
+                        with c_edit:
+                            with st.container(key=f"iconbtn__edit__{team}"):
+                                if st.button("✏️", key=f"edit_btn_{team}"):
+                                    st.session_state.editing_team = team if st.session_state.editing_team != team else None
+                                    st.rerun()
 
-                            with c_del:
-                                with st.container(key=f"iconbtn__del__{team}"):
-                                    if st.button("❌", key=f"del_btn_{team}"):
-                                        st.session_state.confirm_delete_team = team
-                                        st.rerun()
+                        with c_del:
+                            with st.container(key=f"iconbtn__del__{team}"):
+                                if st.button("❌", key=f"del_btn_{team}"):
+                                    st.session_state.confirm_delete_team = team
+                                    st.rerun()
 
-                            # Form In-Line di Modifica (Rinomina e Svincolo Calciatori)
-                            if st.session_state.editing_team == team:
-                                st.caption("✏️ **Rinomina Squadra:**")
-                                renamed_val = st.text_input("Nuovo nome:", value=team, key=f"inp_rename_{team}", label_visibility="collapsed")
-                                if st.button("Salva Nome", key=f"save_rename_{team}", use_container_width=True):
-                                    if renamed_val.strip() and renamed_val.strip() != team and renamed_val.strip() not in st.session_state.asta_state["squadre"]:
-                                        new_name = renamed_val.strip()
+                        # Form In-Line di Modifica (Rinomina e Svincolo Calciatori)
+                        if st.session_state.editing_team == team:
+                            st.caption("✏️ **Rinomina Squadra:**")
+                            renamed_val = st.text_input("Nuovo nome:", value=team, key=f"inp_rename_{team}", label_visibility="collapsed")
+                            if st.button("Salva Nome", key=f"save_rename_{team}", use_container_width=True):
+                                if renamed_val.strip() and renamed_val.strip() != team and renamed_val.strip() not in st.session_state.asta_state["squadre"]:
+                                    new_name = renamed_val.strip()
 
-                                        new_squadre = {}
-                                        for k, v in st.session_state.asta_state["squadre"].items():
-                                            if k == team:
-                                                new_squadre[new_name] = v
-                                            else:
-                                                new_squadre[k] = v
+                                    new_squadre = {}
+                                    for k, v in st.session_state.asta_state["squadre"].items():
+                                        if k == team:
+                                            new_squadre[new_name] = v
+                                        else:
+                                            new_squadre[k] = v
 
-                                        st.session_state.asta_state["squadre"] = new_squadre
+                                    st.session_state.asta_state["squadre"] = new_squadre
 
-                                        for p_info in st.session_state.asta_state["giocatori_acquistati"].values():
-                                            if p_info["squadra_asta"] == team:
-                                                p_info["squadra_asta"] = new_name
+                                    for p_info in st.session_state.asta_state["giocatori_acquistati"].values():
+                                        if p_info["squadra_asta"] == team:
+                                            p_info["squadra_asta"] = new_name
 
-                                        st.session_state.editing_team = None
-                                        save_asta_to_file()
-                                        st.rerun()
-                                    elif renamed_val.strip() == team:
-                                        st.session_state.editing_team = None
-                                        st.rerun()
+                                    st.session_state.editing_team = None
+                                    save_asta_to_file()
+                                    st.rerun()
+                                elif renamed_val.strip() == team:
+                                    st.session_state.editing_team = None
+                                    st.rerun()
 
-                                if data["rosa"]:
-                                    st.caption("🗑️ **Svincola / Elimina Calciatore:**")
-                                    player_opts = ["-- Seleziona calciatore --"] + [
-                                        f"{p['Nome']} ({p.get('Ruolo', PLAYER_TO_ROLE.get(p['Nome'], ''))}) - {p['Prezzo']} cr"
-                                        for p in data["rosa"]
-                                    ]
-                                    sel_p_str = st.selectbox(
-                                        "Calciatore da rimuovere:",
-                                        options=player_opts,
-                                        key=f"sel_rm_{team}",
-                                        label_visibility="collapsed"
-                                    )
-                                    if sel_p_str and sel_p_str != "-- Seleziona calciatore --":
-                                        p_name_only = sel_p_str.split(" (")[0]
-                                        target_p = next((p for p in data["rosa"] if p["Nome"] == p_name_only), None)
-                                        if target_p:
-                                            if st.button(f"❌ Rimuovi {p_name_only} (+{target_p['Prezzo']} cr)", key=f"btn_del_p_{team}", use_container_width=True):
-                                                st.session_state.confirm_delete_player = {
-                                                    "team": team,
-                                                    "nome": target_p["Nome"],
-                                                    "prezzo": target_p["Prezzo"]
-                                                }
-                                                st.rerun()
-                                st.markdown("<hr style='margin: 8px 0; border: none; border-top: 1px solid rgba(255,255,255,0.15);'>", unsafe_allow_html=True)
-
-                            players_by_role = {"P": [], "D": [], "C": [], "A": []}
-                            for p in data["rosa"]:
-                                r = p.get("Ruolo", PLAYER_TO_ROLE.get(p["Nome"], "C"))
-                                if r in players_by_role:
-                                    players_by_role[r].append(p)
-
-                            st.markdown(
-                                f"<p class='credits-info'>Crediti: "
-                                f"<span style='color:#2ecc71;'>{data['crediti_residui']}</span> / {data['budget_iniziale']}</p>",
-                                unsafe_allow_html=True,
-                            )
-
-                            total_p_count = sum(len(plist) for plist in players_by_role.values())
-
-                            if total_p_count == 0:
-                                st.markdown(
-                                    "<p style='font-size:0.85rem; color:#cbd5e1; font-style:italic;'>Rosa ancora vuota.</p>",
-                                    unsafe_allow_html=True,
+                            if data["rosa"]:
+                                st.caption("🗑️ **Svincola / Elimina Calciatore:**")
+                                player_opts = ["-- Seleziona calciatore --"] + [
+                                    f"{p['Nome']} ({p.get('Ruolo', PLAYER_TO_ROLE.get(p['Nome'], ''))}) - {p['Prezzo']} cr"
+                                    for p in data["rosa"]
+                                ]
+                                sel_p_str = st.selectbox(
+                                    "Calciatore da rimuovere:",
+                                    options=player_opts,
+                                    key=f"sel_rm_{team}",
+                                    label_visibility="collapsed"
                                 )
-                            else:
-                                for r_code in ["P", "D", "C", "A"]:
-                                    r_list = players_by_role[r_code]
-                                    max_s = MAX_SLOTS[r_code]
-                                    role_html = f"<div class='role-header'>{role_names[r_code]} ({len(r_list)}/{max_s})</div>"
-                                    if r_list:
-                                        players_html = "<div class='player-list'>"
-                                        for p_item in r_list:
-                                            players_html += f"<div class='player-row'>• {p_item['Nome']}  —  {p_item['Prezzo']} cr</div>"
-                                        players_html += "</div>"
-                                        st.markdown(role_html + players_html, unsafe_allow_html=True)
-                                    else:
-                                        st.markdown(
-                                            role_html + "<div class='player-row' style='color:#94a3b8; font-style:italic;'>Nessuno</div>",
-                                            unsafe_allow_html=True,
-                                        )
+                                if sel_p_str and sel_p_str != "-- Seleziona calciatore --":
+                                    p_name_only = sel_p_str.split(" (")[0]
+                                    target_p = next((p for p in data["rosa"] if p["Nome"] == p_name_only), None)
+                                    if target_p:
+                                        if st.button(f"❌ Rimuovi {p_name_only} (+{target_p['Prezzo']} cr)", key=f"btn_del_p_{team}", use_container_width=True):
+                                            st.session_state.confirm_delete_player = {
+                                                "team": team,
+                                                "nome": target_p["Nome"],
+                                                "prezzo": target_p["Prezzo"]
+                                            }
+                                            st.rerun()
+                            st.markdown("<hr style='margin: 8px 0; border: none; border-top: 1px solid rgba(255,255,255,0.15);'>", unsafe_allow_html=True)
+
+                        players_by_role = {"P": [], "D": [], "C": [], "A": []}
+                        for p in data["rosa"]:
+                            r = p.get("Ruolo", PLAYER_TO_ROLE.get(p["Nome"], "C"))
+                            if r in players_by_role:
+                                players_by_role[r].append(p)
+
+                        st.markdown(
+                            f"<p class='credits-info'>Crediti: "
+                            f"<span style='color:#2ecc71;'>{data['crediti_residui']}</span> / {data['budget_iniziale']}</p>",
+                            unsafe_allow_html=True,
+                        )
+
+                        total_p_count = sum(len(plist) for plist in players_by_role.values())
+
+                        if total_p_count == 0:
+                            st.markdown(
+                                "<p style='font-size:0.85rem; color:#cbd5e1; font-style:italic;'>Rosa ancora vuota.</p>",
+                                unsafe_allow_html=True,
+                            )
+                        else:
+                            for r_code in ["P", "D", "C", "A"]:
+                                r_list = players_by_role[r_code]
+                                max_s = MAX_SLOTS[r_code]
+                                role_html = f"<div class='role-header'>{role_names[r_code]} ({len(r_list)}/{max_s})</div>"
+                                if r_list:
+                                    players_html = "<div class='player-list'>"
+                                    for p_item in r_list:
+                                        players_html += f"<div class='player-row'>• {p_item['Nome']}  —  {p_item['Prezzo']} cr</div>"
+                                    players_html += "</div>"
+                                    st.markdown(role_html + players_html, unsafe_allow_html=True)
+                                else:
+                                    st.markdown(
+                                        role_html + "<div class='player-row' style='color:#94a3b8; font-style:italic;'>Nessuno</div>",
+                                        unsafe_allow_html=True,
+                                    )
 
         # ---- Aggiungi Nuova Squadra: compatto, in fondo ----
         st.divider()
