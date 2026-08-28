@@ -116,10 +116,15 @@ if "name" not in st.session_state:
 
 # ---- Prova auto-login da cookie persistente ----
 if not st.session_state.authentication_status:
-    # Se il controller dei cookie non si è ancora agganciato al browser, attendiamo un ciclo
-    if not cookie_controller.ready():
-        st.stop()  # Ferma temporaneamente il rendering finché i cookie non sono caricati
+    # 1. Recupera la mappa di tutti i cookie attivi dal browser
+    cookies = cookie_controller.getAll()
+    
+    # 2. Se il componente non ha ancora terminato la prima lettura dal browser, 
+    # ferma temporaneamente l'esecuzione in attesa della sincronizzazione DOM.
+    if cookies is None:
+        st.stop()
         
+    # 3. Ora che i cookie sono caricati, verifica il token di autenticazione
     cookie_data = verify_auth_cookie()
     if cookie_data:
         st.session_state.authentication_status = True
