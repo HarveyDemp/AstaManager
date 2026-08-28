@@ -53,13 +53,24 @@ def create_auth_cookie(username: str, name: str):
 
 def verify_auth_cookie():
     token = cookie_controller.get(COOKIE_NAME)
+
     if not token:
-        return None
-    try:
-        return serializer.loads(token, max_age=60 * 60 * 24 * COOKIE_MAX_AGE_DAYS)
-    except (itsdangerous.BadSignature, itsdangerous.SignatureExpired):
+        st.warning("Cookie non trovato")
         return None
 
+    try:
+        return serializer.loads(
+            token,
+            max_age=60 * 60 * 24 * COOKIE_MAX_AGE_DAYS
+        )
+
+    except itsdangerous.SignatureExpired:
+        st.warning("Cookie scaduto")
+        return None
+
+    except itsdangerous.BadSignature as e:
+        st.warning(f"Cookie non valido: {e}")
+        return None
 
 def hash_password(password: str) -> str:
     """Genera l'hash bcrypt di una password in chiaro."""

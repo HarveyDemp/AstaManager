@@ -1,5 +1,7 @@
 streamlit
 pandas
 openpyxl
-bcrypt
 st-supabase-connection
+bcrypt
+itsdangerous
+streamlit-cookies-controller
