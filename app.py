@@ -116,12 +116,15 @@ if "name" not in st.session_state:
 
 # ---- Prova auto-login da cookie persistente ----
 if not st.session_state.authentication_status:
+    # Se il controller dei cookie non si è ancora agganciato al browser, attendiamo un ciclo
+    if not cookie_controller.ready():
+        st.stop()  # Ferma temporaneamente il rendering finché i cookie non sono caricati
+        
     cookie_data = verify_auth_cookie()
     if cookie_data:
         st.session_state.authentication_status = True
         st.session_state.username = cookie_data["username"]
         st.session_state.name = cookie_data["name"]
-
 
 if not st.session_state.authentication_status:
 
@@ -179,10 +182,12 @@ if not st.session_state.authentication_status:
                                 st.session_state.authentication_status = True
                                 st.session_state.username = user_row["username"]
                                 st.session_state.name = user_row["name"]
+                                
+                                # Imposta il cookie nel browser
                                 create_auth_cookie(user_row["username"], user_row["name"])
+                                
+                                # Ricarica per mostrare subito la dashboard autenticata
                                 st.rerun()
-                            else:
-                                st.error("❌ Username o password errati.")
 
             # ---------------- REGISTRAZIONE ----------------
             with tab_register:
