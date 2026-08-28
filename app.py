@@ -129,6 +129,7 @@ if "name" not in st.session_state:
 if not st.session_state.authentication_status:
     # 1. Recupera la mappa di tutti i cookie attivi dal browser
     cookies = cookie_controller.getAll()
+    st.write("DEBUG cookies:", cookies)
     
     # 2. Se il componente non ha ancora terminato la prima lettura dal browser, 
     # ferma temporaneamente l'esecuzione in attesa della sincronizzazione DOM.
@@ -195,15 +196,20 @@ if not st.session_state.authentication_status:
                             st.error(f"⚠️ Errore di connessione al database: {e}")
                         else:
                             if user_row and verify_password(login_password, user_row["password_hash"]):
+
                                 st.session_state.authentication_status = True
                                 st.session_state.username = user_row["username"]
                                 st.session_state.name = user_row["name"]
-                                
-                                # Imposta il cookie nel browser
-                                create_auth_cookie(user_row["username"], user_row["name"])
-                                
-                                # Ricarica per mostrare subito la dashboard autenticata
-                                st.rerun()
+
+                                create_auth_cookie(
+                                    user_row["username"],
+                                    user_row["name"]
+                                )
+
+                                st.success("✅ Login effettuato con successo! Premi F5 tra qualche secondo.")
+
+                if st.session_state.authentication_status:
+                    st.rerun()
 
             # ---------------- REGISTRAZIONE ----------------
             with tab_register:
