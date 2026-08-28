@@ -1,0 +1,63 @@
+{
+    "session_info": {
+        "nome_asta": "rerere"
+    },
+    "asta_state": {
+        "squadre": {
+            "Squadra 1": {
+                "budget_iniziale": 500,
+                "crediti_residui": 499,
+                "rosa": [
+                    {
+                        "Nome": "Martinez Jo.",
+                        "Prezzo": 1,
+                        "Ruolo": "P"
+                    }
+                ]
+            },
+            "Squadra 2": {
+                "budget_iniziale": 500,
+                "crediti_residui": 500,
+                "rosa": []
+            },
+            "Squadra 3": {
+                "budget_iniziale": 500,
+                "crediti_residui": 500,
+                "rosa": []
+            },
+            "Squadra 4": {
+                "budget_iniziale": 500,
+                "crediti_residui": 500,
+                "rosa": []
+            },
+            "Squadra 5": {
+                "budget_iniziale": 500,
+                "crediti_residui": 500,
+                "rosa": []
+            },
+            "Squadra 6": {
+                "budget_iniziale": 500,
+                "crediti_residui": 500,
+                "rosa": []
+            },
+            "Squadra 7": {
+                "budget_iniziale": 500,
+                "crediti_residui": 500,
+                "rosa": []
+            },
+            "Squadra 8": {
+                "budget_iniziale": 500,
+                "crediti_residui": 500,
+                "rosa": []
+            }
+        },
+        "giocatori_acquistati": {
+            "Martinez Jo.": {
+                "squadra_asta": "Squadra 1",
+                "prezzo": 1
+            }
+        },
+        "current_page": 0
+    },
+    "preferiti": []
+}

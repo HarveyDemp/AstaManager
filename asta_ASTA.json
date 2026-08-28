@@ -1,0 +1,43 @@
+{
+    "session_info": {
+        "nome_asta": "ASTA"
+    },
+    "asta_state": {
+        "squadre": {
+            "Squadra 644": {
+                "budget_iniziale": 500,
+                "crediti_residui": 499,
+                "rosa": [
+                    {
+                        "Nome": "Carnesecchi",
+                        "Prezzo": 1,
+                        "Ruolo": "P"
+                    }
+                ]
+            },
+            "Squadra 56": {
+                "budget_iniziale": 500,
+                "crediti_residui": 497,
+                "rosa": [
+                    {
+                        "Nome": "Svilar",
+                        "Prezzo": 3,
+                        "Ruolo": "P"
+                    }
+                ]
+            }
+        },
+        "giocatori_acquistati": {
+            "Carnesecchi": {
+                "squadra_asta": "Squadra 644",
+                "prezzo": 1
+            },
+            "Svilar": {
+                "squadra_asta": "Squadra 56",
+                "prezzo": 3
+            }
+        },
+        "current_page": 1
+    },
+    "preferiti": []
+}

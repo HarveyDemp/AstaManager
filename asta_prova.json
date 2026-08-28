@@ -1,0 +1,106 @@
+{
+    "session_info": {
+        "nome_asta": "prova"
+    },
+    "asta_state": {
+        "squadre": {
+            "MIA SQUADRA": {
+                "budget_iniziale": 500,
+                "crediti_residui": 323,
+                "rosa": [
+                    {
+                        "Nome": "Svilar",
+                        "Prezzo": 100
+                    },
+                    {
+                        "Nome": "Martinez L.",
+                        "Prezzo": 1
+                    },
+                    {
+                        "Nome": "Bernardeschi",
+                        "Prezzo": 3,
+                        "Ruolo": "C"
+                    },
+                    {
+                        "Nome": "Vicario",
+                        "Prezzo": 1,
+                        "Ruolo": "P"
+                    },
+                    {
+                        "Nome": "Maignan",
+                        "Prezzo": 1,
+                        "Ruolo": "P"
+                    },
+                    {
+                        "Nome": "De Gea",
+                        "Prezzo": 1,
+                        "Ruolo": "P"
+                    },
+                    {
+                        "Nome": "Gabbia",
+                        "Prezzo": 45,
+                        "Ruolo": "D"
+                    },
+                    {
+                        "Nome": "Dovbyk",
+                        "Prezzo": 1,
+                        "Ruolo": "A"
+                    },
+                    {
+                        "Nome": "Samardzic",
+                        "Prezzo": 1,
+                        "Ruolo": "C"
+                    },
+                    {
+                        "Nome": "Kevin Carlos",
+                        "Prezzo": 23,
+                        "Ruolo": "A"
+                    }
+                ]
+            }
+        },
+        "giocatori_acquistati": {
+            "Svilar": {
+                "squadra_asta": "MIA SQUADRA",
+                "prezzo": 100
+            },
+            "Martinez L.": {
+                "squadra_asta": "MIA SQUADRA",
+                "prezzo": 1
+            },
+            "Bernardeschi": {
+                "squadra_asta": "MIA SQUADRA",
+                "prezzo": 3
+            },
+            "Vicario": {
+                "squadra_asta": "MIA SQUADRA",
+                "prezzo": 1
+            },
+            "Maignan": {
+                "squadra_asta": "MIA SQUADRA",
+                "prezzo": 1
+            },
+            "De Gea": {
+                "squadra_asta": "MIA SQUADRA",
+                "prezzo": 1
+            },
+            "Gabbia": {
+                "squadra_asta": "MIA SQUADRA",
+                "prezzo": 45
+            },
+            "Dovbyk": {
+                "squadra_asta": "MIA SQUADRA",
+                "prezzo": 1
+            },
+            "Samardzic": {
+                "squadra_asta": "MIA SQUADRA",
+                "prezzo": 1
+            },
+            "Kevin Carlos": {
+                "squadra_asta": "MIA SQUADRA",
+                "prezzo": 23
+            }
+        },
+        "current_page": 1
+    }
+}

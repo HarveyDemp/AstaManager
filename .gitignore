@@ -1,0 +1,21 @@
+# Streamlit Secrets (Contiene la tua chiave Supabase - FONDAMENTALE ESCLUDERLO)
+.streamlit/secrets.toml
+
+# Ambiente Virtuale Python
+venv/
+.venv/
+env/
+ENV/
+
+# Cache di Python e Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Ambienti IDE e Sistema Operativo
+.env
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
