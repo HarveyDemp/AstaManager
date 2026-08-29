@@ -301,9 +301,8 @@ st.markdown(
     LINGUETTA SIDEBAR SINISTRA
     ===================================================== */
 
-    [data-testid="stSidebarCollapsedControl"],
-    [data-testid="stSidebarExpandButton"],
-    [data-testid="stSidebarCollapseButton"] {
+    /* Quando la sidebar è chiusa */
+    [data-testid="stSidebarCollapsedControl"] {
         position: fixed !important;
 
         top: 23vh !important;
@@ -314,17 +313,57 @@ st.markdown(
         width: 48px !important;
         height: 58px !important;
 
-        color: #2ecc71 !important;
         background: #0f380f !important;
-
         border: 2px solid #2ecc71 !important;
         border-left: none !important;
-
         border-radius: 0 10px 10px 0 !important;
 
         box-shadow: 4px 4px 12px rgba(0,0,0,0.5) !important;
+    }
 
-        padding: 8px 7px !important;
+    /* Pulsante vero contenuto dentro la linguetta */
+    [data-testid="stSidebarCollapsedControl"] button {
+        width: 100% !important;
+        height: 100% !important;
+
+        padding: 8px !important;
+
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    /* Nasconde la vecchia icona Streamlit */
+    [data-testid="stSidebarCollapsedControl"] svg {
+        display: none !important;
+    }
+
+    /* Lente */
+    [data-testid="stSidebarCollapsedControl"] button::after {
+        content: "🔍";
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        width: 100%;
+        height: 100%;
+
+        font-size: 1.2rem;
+    }
+
+    /* =====================================================
+    SIDEBAR APERTA:
+    NON tocchiamo la posizione nativa del pulsante
+    ===================================================== */
+
+    [data-testid="stSidebarCollapseButton"] {
+        position: static !important;
+    }
+
+    [data-testid="stSidebarCollapseButton"] button {
+        background: transparent !important;
+        border: none !important;
     }
     /* Sticky Top Container per la barra dell'asta */
     div[data-testid="stVerticalBlock"] > div:has(div.sticky-header-marker):has([data-testid="stHorizontalBlock"]) {
