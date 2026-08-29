@@ -598,9 +598,10 @@ def render_mia_squadra_panel(nome_squadra):
         }}
         [class*="st-key-mia_rosa_toggle"] {{
             position: fixed !important;
-            top: 4.3rem;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
             right: {panel_width if is_open else 0}px;
-            z-index: 950;
+            z-index: 2147483647 !important;
             transition: right 0.2s ease-in-out;
         }}
         [class*="st-key-mia_rosa_toggle"] .stButton > button {{
@@ -609,9 +610,10 @@ def render_mia_squadra_panel(nome_squadra):
             border: 1.5px solid #2ecc71 !important;
             border-right: none !important;
             border-radius: 8px 0 0 8px !important;
-            padding: 6px 10px !important;
+            padding: 10px 8px !important;
             font-weight: bold !important;
             box-shadow: -3px 3px 10px rgba(0,0,0,0.4) !important;
+            min-height: 0px !important;
         }}
         .mia-rosa-title {{
             font-size: 1.05rem;
