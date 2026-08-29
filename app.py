@@ -598,22 +598,38 @@ def render_mia_squadra_panel(nome_squadra):
         }}
         [class*="st-key-mia_rosa_toggle"] {{
             position: fixed !important;
-            top: 50% !important;
+            top: 50vh !important;
+            right: {panel_width if is_open else 0}px !important;
             transform: translateY(-50%) !important;
-            right: {panel_width if is_open else 0}px;
-            z-index: 2147483647 !important;
-            transition: right 0.2s ease-in-out;
+            z-index: 999999 !important;
+            width: auto !important;
+            min-width: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
         }}
+        
+        [class*="st-key-mia_rosa_toggle"] > div {{
+            width: auto !important;
+        }}
+
+        [class*="st-key-mia_rosa_toggle"] .stButton {{
+            width: auto !important;
+        }}
+
         [class*="st-key-mia_rosa_toggle"] .stButton > button {{
+            width: auto !important;
+            min-width: 48px !important;
+            height: 56px !important;
+            padding: 8px 10px !important;
             color: #2ecc71 !important;
-            background-color: #0f380f !important;
-            border: 1.5px solid #2ecc71 !important;
+            background: #0f380f !important;
+            border: 2px solid #2ecc71 !important;
             border-right: none !important;
-            border-radius: 8px 0 0 8px !important;
-            padding: 10px 8px !important;
+            border-radius: 10px 0 0 10px !important;
+            font-size: 1.1rem !important;
             font-weight: bold !important;
-            box-shadow: -3px 3px 10px rgba(0,0,0,0.4) !important;
-            min-height: 0px !important;
+            box-shadow: -4px 4px 12px rgba(0,0,0,0.5) !important;
+            z-index: 999999 !important;
         }}
         .mia-rosa-title {{
             font-size: 1.05rem;
