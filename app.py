@@ -535,15 +535,18 @@ def save_asta_to_file():
 
 
 def list_aste_utente():
-    """Ritorna la lista (nome_asta, updated_at) delle aste salvate dall'utente corrente, più recenti prima."""
+    """Ritorna la lista delle aste salvate dall'utente, con nome, data e modalità, più recenti prima."""
     result = execute_query(
         supabase.table("aste")
-        .select("nome_asta, updated_at")
+        .select("nome_asta, updated_at, stato_json")
         .eq("owner_username", st.session_state.username)
         .order("updated_at", desc=True),
         ttl=0,
     )
-    return result.data or []
+    rows = result.data or []
+    for r in rows:
+        r["modalita"] = (r.get("stato_json") or {}).get("asta_state", {}).get("modalita", "tutte")
+    return rows
 
 
 def load_asta_from_file(nome_asta):
@@ -566,45 +569,77 @@ def load_asta_from_file(nome_asta):
 
  
 def render_mia_squadra_panel(nome_squadra):
-    """Pannello fisso a destra con la rosa dell'utente (solo modalità 'La mia squadra')."""
+    """Pannello apribile/chiudibile a destra con la rosa dell'utente (solo modalità 'La mia squadra')."""
+
+    is_open = st.session_state.mia_rosa_open
+    panel_width = 280
+    pad_right = panel_width + 20 if is_open else 40
 
     st.markdown(
-        """
+        f"""
         <style>
-        .block-container {
-            padding-right: 300px !important;
-        }
-        [class*="st-key-mia_rosa_panel"] {
+        .block-container {{
+            padding-right: {pad_right}px !important;
+            transition: padding-right 0.2s ease-in-out;
+        }}
+        [class*="st-key-mia_rosa_panel"] {{
             position: fixed !important;
-            top: 3.7rem;
-            right: 0;
-            width: 280px;
-            height: calc(100vh - 4.5rem);
+            top: 3.6rem;
+            right: {0 if is_open else -panel_width}px;
+            width: {panel_width}px;
+            height: calc(100vh - 4.4rem);
             overflow-y: auto;
             background: rgba(15, 40, 15, 0.98) !important;
             border-left: 2px solid #2ecc71 !important;
             padding: 14px 12px !important;
             z-index: 900;
             box-shadow: -6px 0 18px rgba(0,0,0,0.45);
-        }
-        .mia-rosa-title {
+            transition: right 0.2s ease-in-out;
+        }}
+        [class*="st-key-mia_rosa_toggle"] {{
+            position: fixed !important;
+            top: 4.3rem;
+            right: {panel_width if is_open else 0}px;
+            z-index: 950;
+            transition: right 0.2s ease-in-out;
+        }}
+        [class*="st-key-mia_rosa_toggle"] .stButton > button {{
+            color: #2ecc71 !important;
+            background-color: #0f380f !important;
+            border: 1.5px solid #2ecc71 !important;
+            border-right: none !important;
+            border-radius: 8px 0 0 8px !important;
+            padding: 6px 10px !important;
+            font-weight: bold !important;
+            box-shadow: -3px 3px 10px rgba(0,0,0,0.4) !important;
+        }}
+        .mia-rosa-title {{
             font-size: 1.05rem;
             font-weight: 800;
             color: #ffffff;
             margin-bottom: 4px;
-        }
-        .mia-rosa-credits {
+        }}
+        .mia-rosa-credits {{
             font-size: 0.85rem;
             font-weight: bold;
             color: #e2e8f0;
             border-bottom: 1px solid rgba(255,255,255,0.2);
             padding-bottom: 6px;
             margin-bottom: 8px;
-        }
+        }}
         </style>
         """,
         unsafe_allow_html=True,
     )
+
+    # ---- Bottone toggle apri/chiudi ----
+    with st.container(key="mia_rosa_toggle"):
+        if st.button("⭐ ›" if is_open else "⭐ ‹", key="btn_toggle_mia_rosa"):
+            st.session_state.mia_rosa_open = not st.session_state.mia_rosa_open
+            st.rerun()
+
+    if not is_open:
+        return
 
     team_data = st.session_state.asta_state["squadre"][nome_squadra]
 
@@ -646,9 +681,10 @@ def render_mia_squadra_panel(nome_squadra):
                     )
 
 
-
 if "app_mode" not in st.session_state:
     st.session_state.app_mode = "menu"
+if "mia_rosa_open" not in st.session_state:
+    st.session_state.mia_rosa_open = True    
 if "preferiti" not in st.session_state:
     st.session_state.preferiti = []
 if "_reset_player_search" not in st.session_state:
@@ -796,14 +832,15 @@ if st.session_state.app_mode == "menu":
             st.error(f"⚠️ Errore nel recupero delle aste salvate: {e}")
 
         if saved_aste:
-            options_aste = [row["nome_asta"] for row in saved_aste]
-            selected_asta_nome = st.selectbox("Seleziona Asta Salvata", options=options_aste)
-            if st.button("📥 Carica Asta Selezionata"):
-                load_asta_from_file(selected_asta_nome)
-                st.rerun()
-        else:
-            st.info("Nessuna asta salvata trovata.")
+            def _label_asta(row):
+                tag = "⭐ Mia Squadra" if row.get("modalita") == "mia_squadra" else "👥 Tutte le Squadre"
+                return f"{row['nome_asta']}  —  {tag}"
 
+            label_to_nome = {_label_asta(row): row["nome_asta"] for row in saved_aste}
+            selected_label = st.selectbox("Seleziona Asta Salvata", options=list(label_to_nome.keys()))
+            if st.button("📥 Carica Asta Selezionata"):
+                load_asta_from_file(label_to_nome[selected_label])
+                st.rerun()
 # ==========================================
 # ⚽ APPLICAZIONE ASTA
 # ==========================================
@@ -1007,7 +1044,15 @@ elif st.session_state.app_mode == "in_asta":
     col_head1, col_head2, col_head3 = st.columns([3, 1, 1])
 
     with col_head1:
-        st.markdown(f"## **{st.session_state.session_info['nome_asta']}**")
+        _modalita_corrente = st.session_state.asta_state.get("modalita", "tutte")
+        _modalita_label = "⭐ Mia Squadra" if _modalita_corrente == "mia_squadra" else "👥 Tutte le Squadre"
+        st.markdown(
+            f"## **{st.session_state.session_info['nome_asta']}**&nbsp;"
+            f"<span style='font-size:0.72rem; font-weight:700; color:#2ecc71; "
+            f"background:rgba(46,204,113,0.15); border:1px solid rgba(46,204,113,0.4); "
+            f"border-radius:999px; padding:3px 10px; vertical-align:middle;'>{_modalita_label}</span>",
+            unsafe_allow_html=True,
+        )
 
     with col_head2:
         if st.button("💾 Salva Asta"):
