@@ -6,6 +6,7 @@ import streamlit as st
 from st_supabase_connection import SupabaseConnection, execute_query
 import itsdangerous
 from streamlit_cookies_controller import CookieController
+import streamlit.components.v1 as components
 
 # 1. Configurazione Pagina (sempre la prima istruzione Streamlit)
 st.set_page_config(
@@ -870,6 +871,67 @@ def render_mia_squadra_panel(nome_squadra):
                         unsafe_allow_html=True
                     )
 
+
+
+components.html(
+    """
+    <script>
+    (function() {
+        const doc = window.parent.document;
+
+        function styleSidebarToggle() {
+            const icons = doc.querySelectorAll('span[data-testid="stIconMaterial"]');
+
+            icons.forEach(span => {
+                const txt = span.textContent.trim();
+
+                // Solo l'icona del pulsante che APRE la sidebar quando è chiusa
+                if (txt !== 'keyboard_double_arrow_right') return;
+
+                const btn = span.closest('button');
+                if (!btn) return;
+
+                btn.style.setProperty('position', 'fixed', 'important');
+                btn.style.setProperty('top', '23vh', 'important');
+                btn.style.setProperty('left', '0px', 'important');
+                btn.style.setProperty('z-index', '999999', 'important');
+                btn.style.setProperty('width', '48px', 'important');
+                btn.style.setProperty('height', '58px', 'important');
+                btn.style.setProperty('background', '#0f380f', 'important');
+                btn.style.setProperty('border', '2px solid #2ecc71', 'important');
+                btn.style.setProperty('border-left', 'none', 'important');
+                btn.style.setProperty('border-radius', '0 10px 10px 0', 'important');
+                btn.style.setProperty('box-shadow', '4px 4px 12px rgba(0,0,0,0.5)', 'important');
+                btn.style.setProperty('display', 'flex', 'important');
+                btn.style.setProperty('align-items', 'center', 'important');
+                btn.style.setProperty('justify-content', 'center', 'important');
+                btn.style.setProperty('cursor', 'pointer', 'important');
+                btn.style.setProperty('opacity', '1', 'important');
+                btn.style.setProperty('visibility', 'visible', 'important');
+
+                // Nasconde l'icona Material originale (la freccia)
+                span.style.setProperty('display', 'none', 'important');
+
+                // Inserisce la lente al posto della freccia
+                if (!btn.querySelector('.custom-lens-icon')) {
+                    const lens = doc.createElement('span');
+                    lens.className = 'custom-lens-icon';
+                    lens.textContent = '🔍';
+                    lens.style.fontSize = '1.2rem';
+                    lens.style.pointerEvents = 'none';
+                    btn.appendChild(lens);
+                }
+            });
+        }
+
+        const observer = new MutationObserver(styleSidebarToggle);
+        observer.observe(doc.body, { childList: true, subtree: true });
+        styleSidebarToggle();
+    })();
+    </script>
+    """,
+    height=0,
+)
 
 if "app_mode" not in st.session_state:
     st.session_state.app_mode = "menu"
