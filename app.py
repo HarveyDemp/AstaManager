@@ -319,6 +319,15 @@ st.markdown(
         border-radius: 0 10px 10px 0 !important;
 
         box-shadow: 4px 4px 12px rgba(0,0,0,0.5) !important;
+        transition: background 0.15s ease-in-out !important;
+    }
+
+    [data-testid="stSidebarCollapsedControl"]:hover {
+        background: #145a14 !important;
+    }
+
+    [data-testid="stSidebarCollapsedControl"]:hover button::after {
+        color: #ffffff !important;
     }
 
     /* Pulsante vero contenuto dentro la linguetta */
@@ -622,9 +631,10 @@ def load_asta_from_file(nome_asta):
     st.session_state.preferiti = data.get("preferiti", [])
     st.session_state.app_mode = "in_asta"
 
- 
+@st.fragment
 def render_mia_squadra_panel(nome_squadra):
-    """Pannello apribile/chiudibile a destra con la rosa dell'utente."""
+    """Pannello apribile/chiudibile a destra con la rosa dell'utente.
+    Decorato come fragment: il toggle apri/chiudi NON ricarica l'intera pagina."""
 
     is_open = st.session_state.mia_rosa_open
     panel_width = 280
@@ -757,8 +767,9 @@ def render_mia_squadra_panel(nome_squadra):
             key="btn_toggle_mia_rosa"
         ):
             st.session_state.mia_rosa_open = not st.session_state.mia_rosa_open
-            st.rerun()
+            st.rerun(scope="fragment")
 
+    
     if not is_open:
         return
 
