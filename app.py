@@ -278,10 +278,6 @@ st.markdown(
         background: transparent !important;
     }
     
-    .block-container {
-        padding-top: 0.3rem !important;
-        padding-bottom: 1rem !important;
-    }
 
     /* Riduce lo spazio verticale tra i blocchi nell'area principale */
     section.main div[data-testid="stVerticalBlock"] {
@@ -300,16 +296,36 @@ st.markdown(
     }
 
     /* PULSANTE PER APRIRE / CHIUDERE LA SIDEBAR */
-    [data-testid="stSidebarCollapsedControl"], 
+
+    /* =====================================================
+    LINGUETTA SIDEBAR SINISTRA
+    ===================================================== */
+
+    [data-testid="stSidebarCollapsedControl"],
     [data-testid="stSidebarExpandButton"],
     [data-testid="stSidebarCollapseButton"] {
-        color: #2ecc71 !important;
-        background-color: #0f380f !important;
-        border: 1.5px solid #2ecc71 !important;
-        border-radius: 8px !important;
-        visibility: visible !important;
-    }
+        position: fixed !important;
 
+        top: 23vh !important;
+        left: 0 !important;
+
+        z-index: 20000 !important;
+
+        width: 48px !important;
+        height: 58px !important;
+
+        color: #2ecc71 !important;
+        background: #0f380f !important;
+
+        border: 2px solid #2ecc71 !important;
+        border-left: none !important;
+
+        border-radius: 0 10px 10px 0 !important;
+
+        box-shadow: 4px 4px 12px rgba(0,0,0,0.5) !important;
+
+        padding: 8px 7px !important;
+    }
     /* Sticky Top Container per la barra dell'asta */
     div[data-testid="stVerticalBlock"] > div:has(div.sticky-header-marker):has([data-testid="stHorizontalBlock"]) {
         position: sticky;
@@ -569,45 +585,66 @@ def load_asta_from_file(nome_asta):
 
  
 def render_mia_squadra_panel(nome_squadra):
-    """Pannello apribile/chiudibile a destra con la rosa dell'utente (solo modalità 'La mia squadra')."""
+    """Pannello apribile/chiudibile a destra con la rosa dell'utente."""
 
     is_open = st.session_state.mia_rosa_open
     panel_width = 280
-    pad_right = panel_width + 20 if is_open else 40
 
     st.markdown(
         f"""
         <style>
-        .block-container {{
-            padding-right: {pad_right}px !important;
-            transition: padding-right 0.2s ease-in-out;
-        }}
+
+        /* =====================================================
+           PANNELLO ROSA A DESTRA
+           Sovrapposto al contenuto: NON restringe la pagina
+           ===================================================== */
+
         [class*="st-key-mia_rosa_panel"] {{
             position: fixed !important;
-            top: 3.6rem;
-            right: {0 if is_open else -panel_width}px;
-            width: {panel_width}px;
-            height: calc(100vh - 4.4rem);
+            top: 3.6rem !important;
+            right: {0 if is_open else -panel_width}px !important;
+
+            width: {panel_width}px !important;
+            height: calc(100vh - 4.4rem) !important;
+
             overflow-y: auto;
+
             background: rgba(15, 40, 15, 0.98) !important;
             border-left: 2px solid #2ecc71 !important;
+
             padding: 14px 12px !important;
-            z-index: 900;
+
+            z-index: 10000 !important;
             box-shadow: -6px 0 18px rgba(0,0,0,0.45);
+
             transition: right 0.2s ease-in-out;
         }}
+
+
+        /* =====================================================
+           LINGUETTA DESTRA
+           Più in alto rispetto al centro
+           ===================================================== */
+
         [class*="st-key-mia_rosa_toggle"] {{
             position: fixed !important;
-            top: 50vh !important;
+
+            top: 23vh !important;
             right: {panel_width if is_open else 0}px !important;
+
             transform: translateY(-50%) !important;
-            z-index: 999999 !important;
+
+            z-index: 20000 !important;
+
             width: auto !important;
             min-width: 0 !important;
-            padding: 0 !important;
+
             margin: 0 !important;
+            padding: 0 !important;
+
+            transition: right 0.2s ease-in-out;
         }}
-        
+
         [class*="st-key-mia_rosa_toggle"] > div {{
             width: auto !important;
         }}
@@ -617,26 +654,46 @@ def render_mia_squadra_panel(nome_squadra):
         }}
 
         [class*="st-key-mia_rosa_toggle"] .stButton > button {{
-            width: auto !important;
+            width: 48px !important;
             min-width: 48px !important;
-            height: 56px !important;
-            padding: 8px 10px !important;
+
+            height: 58px !important;
+
+            padding: 8px 7px !important;
+
             color: #2ecc71 !important;
             background: #0f380f !important;
+
             border: 2px solid #2ecc71 !important;
             border-right: none !important;
+
             border-radius: 10px 0 0 10px !important;
-            font-size: 1.1rem !important;
+
+            font-size: 1.15rem !important;
             font-weight: bold !important;
+
             box-shadow: -4px 4px 12px rgba(0,0,0,0.5) !important;
-            z-index: 999999 !important;
+
+            cursor: pointer !important;
         }}
+
+        [class*="st-key-mia_rosa_toggle"] .stButton > button:hover {{
+            background: #145a14 !important;
+            color: #ffffff !important;
+        }}
+
+
+        /* =====================================================
+           TITOLO / CREDITI
+           ===================================================== */
+
         .mia-rosa-title {{
             font-size: 1.05rem;
             font-weight: 800;
             color: #ffffff;
             margin-bottom: 4px;
         }}
+
         .mia-rosa-credits {{
             font-size: 0.85rem;
             font-weight: bold;
@@ -645,14 +702,21 @@ def render_mia_squadra_panel(nome_squadra):
             padding-bottom: 6px;
             margin-bottom: 8px;
         }}
+
         </style>
         """,
         unsafe_allow_html=True,
     )
 
-    # ---- Bottone toggle apri/chiudi ----
+    # =========================================================
+    # BOTTONE TOGGLE
+    # =========================================================
+
     with st.container(key="mia_rosa_toggle"):
-        if st.button("⭐ ›" if is_open else "⭐ ‹", key="btn_toggle_mia_rosa"):
+        if st.button(
+            "⭐ ›" if is_open else "⭐ ‹",
+            key="btn_toggle_mia_rosa"
+        ):
             st.session_state.mia_rosa_open = not st.session_state.mia_rosa_open
             st.rerun()
 
@@ -662,40 +726,98 @@ def render_mia_squadra_panel(nome_squadra):
     team_data = st.session_state.asta_state["squadre"][nome_squadra]
 
     with st.container(key="mia_rosa_panel"):
-        st.markdown(f'<div class="mia-rosa-title">⭐ {nome_squadra}</div>', unsafe_allow_html=True)
+
         st.markdown(
-            f'<div class="mia-rosa-credits">Crediti: '
-            f'<span style="color:#2ecc71;">{team_data["crediti_residui"]}</span> / {team_data["budget_iniziale"]}</div>',
-            unsafe_allow_html=True,
+            f'<div class="mia-rosa-title">⭐ {nome_squadra}</div>',
+            unsafe_allow_html=True
         )
 
-        role_names_panel = {"P": "Portieri", "D": "Difensori", "C": "Centrocampisti", "A": "Attaccanti"}
-        players_by_role = {"P": [], "D": [], "C": [], "A": []}
+        st.markdown(
+            f'<div class="mia-rosa-credits">'
+            f'Crediti: '
+            f'<span style="color:#2ecc71;">'
+            f'{team_data["crediti_residui"]}'
+            f'</span> / {team_data["budget_iniziale"]}'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+        role_names_panel = {
+            "P": "Portieri",
+            "D": "Difensori",
+            "C": "Centrocampisti",
+            "A": "Attaccanti"
+        }
+
+        players_by_role = {
+            "P": [],
+            "D": [],
+            "C": [],
+            "A": []
+        }
+
         for p in team_data["rosa"]:
-            r = p.get("Ruolo", PLAYER_TO_ROLE.get(p["Nome"], "C"))
+            r = p.get(
+                "Ruolo",
+                PLAYER_TO_ROLE.get(p["Nome"], "C")
+            )
+
             if r in players_by_role:
                 players_by_role[r].append(p)
 
         if not team_data["rosa"]:
+
             st.markdown(
-                "<p style='font-size:0.85rem; color:#cbd5e1; font-style:italic;'>Rosa ancora vuota.</p>",
-                unsafe_allow_html=True,
+                "<p style='font-size:0.85rem; "
+                "color:#cbd5e1; "
+                "font-style:italic;'>"
+                "Rosa ancora vuota.</p>",
+                unsafe_allow_html=True
             )
+
         else:
+
             for r_code in ["P", "D", "C", "A"]:
+
                 r_list = players_by_role[r_code]
                 max_s = MAX_SLOTS[r_code]
-                role_html = f"<div class='role-header'>{role_names_panel[r_code]} ({len(r_list)}/{max_s})</div>"
+
+                role_html = (
+                    f"<div class='role-header'>"
+                    f"{role_names_panel[r_code]} "
+                    f"({len(r_list)}/{max_s})"
+                    f"</div>"
+                )
+
                 if r_list:
+
                     players_html = "<div class='player-list'>"
+
                     for p_item in r_list:
-                        players_html += f"<div class='player-row'>• {p_item['Nome']} — {p_item['Prezzo']} cr</div>"
+
+                        players_html += (
+                            f"<div class='player-row'>"
+                            f"• {p_item['Nome']} — "
+                            f"{p_item['Prezzo']} cr"
+                            f"</div>"
+                        )
+
                     players_html += "</div>"
-                    st.markdown(role_html + players_html, unsafe_allow_html=True)
-                else:
+
                     st.markdown(
-                        role_html + "<div class='player-row' style='color:#94a3b8; font-style:italic;'>Nessuno</div>",
-                        unsafe_allow_html=True,
+                        role_html + players_html,
+                        unsafe_allow_html=True
+                    )
+
+                else:
+
+                    st.markdown(
+                        role_html +
+                        "<div class='player-row' "
+                        "style='color:#94a3b8; "
+                        "font-style:italic;'>"
+                        "Nessuno</div>",
+                        unsafe_allow_html=True
                     )
 
 
