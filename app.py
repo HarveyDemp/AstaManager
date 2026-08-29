@@ -568,6 +568,13 @@ if "app_mode" not in st.session_state:
     st.session_state.app_mode = "menu"
 if "preferiti" not in st.session_state:
     st.session_state.preferiti = []
+if "_reset_player_search" not in st.session_state:
+    st.session_state._reset_player_search = False
+# Se il flag è attivo, resetta la selectbox PRIMA che venga istanziata in questa run
+if st.session_state._reset_player_search:
+    st.session_state["player_search_select"] = None
+    st.session_state["search_filter_text"] = ""
+    st.session_state._reset_player_search = False
 if "editing_team" not in st.session_state:
     st.session_state.editing_team = None
 if "confirm_delete_team" not in st.session_state:
@@ -993,10 +1000,8 @@ elif st.session_state.app_mode == "in_asta":
                             "Nome": player_real_name, "Prezzo": prezzo_acquisto, "Ruolo": player_role
                         })
                         
-                        # 2. Reset dei filtri di ricerca per il prossimo giocatore
-                        st.session_state["search_filter_text"] = ""
-                        if "player_search_select" in st.session_state:
-                            st.session_state["player_search_select"] = None
+                        # 2. Segnala che al prossimo giro va resettata la selectbox
+                        st.session_state._reset_player_search = True
 
                         # 3. SALVATAGGIO AUTOMATICO SU SUPABASE
                         save_asta_to_file()
