@@ -564,6 +564,89 @@ def load_asta_from_file(nome_asta):
     st.session_state.preferiti = data.get("preferiti", [])
     st.session_state.app_mode = "in_asta"
 
+ 
+def render_mia_squadra_panel(nome_squadra):
+    """Pannello fisso a destra con la rosa dell'utente (solo modalità 'La mia squadra')."""
+
+    st.markdown(
+        """
+        <style>
+        .block-container {
+            padding-right: 300px !important;
+        }
+        [class*="st-key-mia_rosa_panel"] {
+            position: fixed !important;
+            top: 3.7rem;
+            right: 0;
+            width: 280px;
+            height: calc(100vh - 4.5rem);
+            overflow-y: auto;
+            background: rgba(15, 40, 15, 0.98) !important;
+            border-left: 2px solid #2ecc71 !important;
+            padding: 14px 12px !important;
+            z-index: 900;
+            box-shadow: -6px 0 18px rgba(0,0,0,0.45);
+        }
+        .mia-rosa-title {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 4px;
+        }
+        .mia-rosa-credits {
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #e2e8f0;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 6px;
+            margin-bottom: 8px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    team_data = st.session_state.asta_state["squadre"][nome_squadra]
+
+    with st.container(key="mia_rosa_panel"):
+        st.markdown(f'<div class="mia-rosa-title">⭐ {nome_squadra}</div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="mia-rosa-credits">Crediti: '
+            f'<span style="color:#2ecc71;">{team_data["crediti_residui"]}</span> / {team_data["budget_iniziale"]}</div>',
+            unsafe_allow_html=True,
+        )
+
+        role_names_panel = {"P": "Portieri", "D": "Difensori", "C": "Centrocampisti", "A": "Attaccanti"}
+        players_by_role = {"P": [], "D": [], "C": [], "A": []}
+        for p in team_data["rosa"]:
+            r = p.get("Ruolo", PLAYER_TO_ROLE.get(p["Nome"], "C"))
+            if r in players_by_role:
+                players_by_role[r].append(p)
+
+        if not team_data["rosa"]:
+            st.markdown(
+                "<p style='font-size:0.85rem; color:#cbd5e1; font-style:italic;'>Rosa ancora vuota.</p>",
+                unsafe_allow_html=True,
+            )
+        else:
+            for r_code in ["P", "D", "C", "A"]:
+                r_list = players_by_role[r_code]
+                max_s = MAX_SLOTS[r_code]
+                role_html = f"<div class='role-header'>{role_names_panel[r_code]} ({len(r_list)}/{max_s})</div>"
+                if r_list:
+                    players_html = "<div class='player-list'>"
+                    for p_item in r_list:
+                        players_html += f"<div class='player-row'>• {p_item['Nome']} — {p_item['Prezzo']} cr</div>"
+                    players_html += "</div>"
+                    st.markdown(role_html + players_html, unsafe_allow_html=True)
+                else:
+                    st.markdown(
+                        role_html + "<div class='player-row' style='color:#94a3b8; font-style:italic;'>Nessuno</div>",
+                        unsafe_allow_html=True,
+                    )
+
+
+
 if "app_mode" not in st.session_state:
     st.session_state.app_mode = "menu"
 if "preferiti" not in st.session_state:
@@ -649,29 +732,60 @@ if st.session_state.app_mode == "menu":
     with col_m1:
         st.subheader("🆕 Nuova Asta")
         nome_nuova_asta = st.text_input("Nome Asta / Lega", placeholder="Es. Lega Amici 2026")
-        num_squadre = st.number_input("Numero di Squadre Partecipanti", min_value=2, max_value=20, value=8)
-        budget_default = st.number_input("Budget Iniziale Crediti", min_value=100, value=500)
-        
+
+        modalita_asta = st.radio(
+            "Modalità Asta",
+            options=["tutte", "mia_squadra"],
+            format_func=lambda m: "👥 Tutte le squadre" if m == "tutte" else "⭐ Solo la mia squadra",
+            horizontal=True,
+        )
+
+        if modalita_asta == "tutte":
+            num_squadre = st.number_input("Numero di Squadre Partecipanti", min_value=2, max_value=20, value=8)
+            budget_default = st.number_input("Budget Iniziale Crediti", min_value=100, value=500)
+        else:
+            nome_mia_squadra_input = st.text_input("Nome della tua Squadra", value="La Mia Squadra")
+            budget_default = st.number_input("Budget Iniziale Crediti", min_value=100, value=500)
+
         if st.button("🚀 Avvia Nuova Asta"):
             if nome_nuova_asta.strip():
                 st.session_state.session_info = {"nome_asta": nome_nuova_asta.strip()}
-                
-                squadre_auto = {}
-                for i in range(1, num_squadre + 1):
-                    squadre_auto[f"Squadra {i}"] = {
-                        "budget_iniziale": budget_default,
-                        "crediti_residui": budget_default,
-                        "rosa": []
+
+                if modalita_asta == "tutte":
+                    squadre_auto = {}
+                    for i in range(1, num_squadre + 1):
+                        squadre_auto[f"Squadra {i}"] = {
+                            "budget_iniziale": budget_default,
+                            "crediti_residui": budget_default,
+                            "rosa": []
+                        }
+                    st.session_state.asta_state = {
+                        "modalita": "tutte",
+                        "squadre": squadre_auto,
+                        "giocatori_acquistati": {},
+                        "current_page": 0
                     }
-                
-                st.session_state.asta_state = {
-                    "squadre": squadre_auto,
-                    "giocatori_acquistati": {},
-                    "current_page": 0
-                }
+                else:
+                    nome_mia = nome_mia_squadra_input.strip() or "La Mia Squadra"
+                    st.session_state.asta_state = {
+                        "modalita": "mia_squadra",
+                        "mia_squadra_nome": nome_mia,
+                        "squadre": {
+                            nome_mia: {
+                                "budget_iniziale": budget_default,
+                                "crediti_residui": budget_default,
+                                "rosa": []
+                            }
+                        },
+                        "giocatori_acquistati": {},
+                        "current_page": 0
+                    }
+
                 st.session_state.preferiti = []
                 st.session_state.app_mode = "in_asta"
                 st.rerun()
+
+
 
     with col_m2:
         st.subheader("📂 Carica Asta")
@@ -912,7 +1026,14 @@ elif st.session_state.app_mode == "in_asta":
     # (sostituisce sia la vecchia "BARRA DI RICERCA STICKY IN ALTO"
     #  sia la vecchia "NAVIGAZIONE SCHERMATE")
     # ==========================================
-    PAGE_NAMES = ["Listone", "Formazioni", "Fantarose"]
+    modalita = st.session_state.asta_state.get("modalita", "tutte")
+    mia_squadra_nome = st.session_state.asta_state.get("mia_squadra_nome")
+
+    if modalita == "mia_squadra":
+        render_mia_squadra_panel(mia_squadra_nome)
+        PAGE_NAMES = ["Listone", "Formazioni"]
+    else:
+        PAGE_NAMES = ["Listone", "Formazioni", "Fantarose"]
 
     with st.container():
         st.markdown('<div class="sticky-header-marker" style="display:none;"></div>', unsafe_allow_html=True)
@@ -971,7 +1092,14 @@ elif st.session_state.app_mode == "in_asta":
                 st.session_state["search_filter_text"] = ""
 
         with col_squadra:
-            squadra_dest = st.selectbox("Assegna a Squadra", options=list(st.session_state.asta_state["squadre"].keys()))
+            if modalita == "mia_squadra":
+                assegna_a = st.selectbox(
+                    "Assegna a",
+                    options=["mia", "altri"],
+                    format_func=lambda v: f"⭐ {mia_squadra_nome}" if v == "mia" else "🔒 Altra Squadra",
+                )
+            else:
+                squadra_dest = st.selectbox("Assegna a Squadra", options=list(st.session_state.asta_state["squadre"].keys()))
         with col_prezzo:
             prezzo_acquisto = st.number_input("Prezzo (Cr)", min_value=1, value=1)
 
@@ -983,31 +1111,54 @@ elif st.session_state.app_mode == "in_asta":
                     player_real_name = options_dict[selected_display]
                     player_role = PLAYER_TO_ROLE.get(player_real_name, "D")
 
-                    team_rosa = st.session_state.asta_state["squadre"][squadra_dest]["rosa"]
-                    current_role_count = sum(1 for p in team_rosa if p.get("Ruolo") == player_role)
-                    max_allowed = MAX_SLOTS.get(player_role, 8)
+                    if modalita == "mia_squadra":
+                        if assegna_a == "mia":
+                            team_rosa = st.session_state.asta_state["squadre"][mia_squadra_nome]["rosa"]
+                            current_role_count = sum(1 for p in team_rosa if p.get("Ruolo") == player_role)
+                            max_allowed = MAX_SLOTS.get(player_role, 8)
 
-                    if current_role_count >= max_allowed:
-                        st.error(f"❌ Limite raggiunto! {squadra_dest} ha già {current_role_count}/{max_allowed} nel ruolo {player_role}.")
+                            if current_role_count >= max_allowed:
+                                st.error(f"❌ Limite raggiunto! Hai già {current_role_count}/{max_allowed} nel ruolo {player_role}.")
+                            else:
+                                st.session_state.asta_state["giocatori_acquistati"][player_real_name] = {
+                                    "squadra_asta": mia_squadra_nome,
+                                    "prezzo": prezzo_acquisto
+                                }
+                                st.session_state.asta_state["squadre"][mia_squadra_nome]["crediti_residui"] -= prezzo_acquisto
+                                st.session_state.asta_state["squadre"][mia_squadra_nome]["rosa"].append({
+                                    "Nome": player_real_name, "Prezzo": prezzo_acquisto, "Ruolo": player_role
+                                })
+                                st.session_state._reset_player_search = True
+                                save_asta_to_file()
+                                st.rerun()
+                        else:
+                            st.session_state.asta_state["giocatori_acquistati"][player_real_name] = {
+                                "squadra_asta": "Altra Squadra",
+                                "prezzo": prezzo_acquisto
+                            }
+                            st.session_state._reset_player_search = True
+                            save_asta_to_file()
+                            st.rerun()
+
                     else:
-                        # 1. Registra l'acquisto nello stato locale
-                        st.session_state.asta_state["giocatori_acquistati"][player_real_name] = {
-                            "squadra_asta": squadra_dest,
-                            "prezzo": prezzo_acquisto
-                        }
-                        st.session_state.asta_state["squadre"][squadra_dest]["crediti_residui"] -= prezzo_acquisto
-                        st.session_state.asta_state["squadre"][squadra_dest]["rosa"].append({
-                            "Nome": player_real_name, "Prezzo": prezzo_acquisto, "Ruolo": player_role
-                        })
-                        
-                        # 2. Segnala che al prossimo giro va resettata la selectbox
-                        st.session_state._reset_player_search = True
+                        team_rosa = st.session_state.asta_state["squadre"][squadra_dest]["rosa"]
+                        current_role_count = sum(1 for p in team_rosa if p.get("Ruolo") == player_role)
+                        max_allowed = MAX_SLOTS.get(player_role, 8)
 
-                        # 3. SALVATAGGIO AUTOMATICO SU SUPABASE
-                        save_asta_to_file()
-
-                        # 4. Ricarica la pagina con i dati aggiornati
-                        st.rerun()
+                        if current_role_count >= max_allowed:
+                            st.error(f"❌ Limite raggiunto! {squadra_dest} ha già {current_role_count}/{max_allowed} nel ruolo {player_role}.")
+                        else:
+                            st.session_state.asta_state["giocatori_acquistati"][player_real_name] = {
+                                "squadra_asta": squadra_dest,
+                                "prezzo": prezzo_acquisto
+                            }
+                            st.session_state.asta_state["squadre"][squadra_dest]["crediti_residui"] -= prezzo_acquisto
+                            st.session_state.asta_state["squadre"][squadra_dest]["rosa"].append({
+                                "Nome": player_real_name, "Prezzo": prezzo_acquisto, "Ruolo": player_role
+                            })
+                            st.session_state._reset_player_search = True
+                            save_asta_to_file()
+                            st.rerun()
     st.divider()
 
     # ==========================================
