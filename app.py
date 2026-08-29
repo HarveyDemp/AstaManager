@@ -298,69 +298,6 @@ st.markdown(
 
     /* PULSANTE PER APRIRE / CHIUDERE LA SIDEBAR */
 
-    /* =====================================================
-    LINGUETTA SIDEBAR SINISTRA
-    ===================================================== */
-
-    /* Quando la sidebar è chiusa */
-    [data-testid="stSidebarCollapsedControl"] {
-        position: fixed !important;
-
-        top: 23vh !important;
-        left: 0 !important;
-
-        z-index: 20000 !important;
-
-        width: 48px !important;
-        height: 58px !important;
-
-        background: #0f380f !important;
-        border: 2px solid #2ecc71 !important;
-        border-left: none !important;
-        border-radius: 0 10px 10px 0 !important;
-
-        box-shadow: 4px 4px 12px rgba(0,0,0,0.5) !important;
-        transition: background 0.15s ease-in-out !important;
-    }
-
-    [data-testid="stSidebarCollapsedControl"]:hover {
-        background: #145a14 !important;
-    }
-
-    [data-testid="stSidebarCollapsedControl"]:hover button::after {
-        color: #ffffff !important;
-    }
-
-    /* Pulsante vero contenuto dentro la linguetta */
-    [data-testid="stSidebarCollapsedControl"] button {
-        width: 100% !important;
-        height: 100% !important;
-
-        padding: 8px !important;
-
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-    }
-
-    /* Nasconde la vecchia icona Streamlit */
-    [data-testid="stSidebarCollapsedControl"] svg {
-        display: none !important;
-    }
-
-    /* Lente */
-    [data-testid="stSidebarCollapsedControl"] button::after {
-        content: "🔍";
-
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        width: 100%;
-        height: 100%;
-
-        font-size: 1.2rem;
-    }
 
     /* =====================================================
     SIDEBAR APERTA:
@@ -543,6 +480,91 @@ st.markdown(
     </style>
     """,
     unsafe_allow_html=True,
+)
+
+import streamlit.components.v1 as components
+
+components.html(
+    """
+    <script>
+    (function() {
+        const doc = window.parent.document;
+
+        function styleSidebarToggle() {
+            const icons = doc.querySelectorAll('span[data-testid="stIconMaterial"]');
+
+            icons.forEach(span => {
+                const txt = span.textContent.trim();
+                if (txt !== 'keyboard_double_arrow_right') return;
+
+                const btn = span.closest('button');
+                if (!btn) return;
+
+                // Il vero elemento "cliccabile visibile" può essere un contenitore
+                // esterno al bottone (es. link/div wrapper). Prendiamo il genitore
+                // più esterno ragionevole per applicare le dimensioni fisse una volta sola,
+                // così NON ci sono due box sovrapposti.
+                const outer = btn.parentElement || btn;
+
+                [outer, btn].forEach(el => {
+                    el.style.setProperty('position', el === outer ? 'fixed' : 'static', 'important');
+                });
+
+                outer.style.setProperty('position', 'fixed', 'important');
+                outer.style.setProperty('top', '23vh', 'important');
+                outer.style.setProperty('left', '0px', 'important');
+                outer.style.setProperty('z-index', '999999', 'important');
+                outer.style.setProperty('width', '48px', 'important');
+                outer.style.setProperty('height', '58px', 'important');
+                outer.style.setProperty('margin', '0', 'important');
+                outer.style.setProperty('padding', '0', 'important');
+                outer.style.setProperty('background', '#0f380f', 'important');
+                outer.style.setProperty('border', '2px solid #2ecc71', 'important');
+                outer.style.setProperty('border-left', 'none', 'important');
+                outer.style.setProperty('border-radius', '0 10px 10px 0', 'important');
+                outer.style.setProperty('box-shadow', '4px 4px 12px rgba(0,0,0,0.5)', 'important');
+                outer.style.setProperty('overflow', 'hidden', 'important');
+
+                // Il bottone interno riempie completamente il contenitore,
+                // senza il suo stile nativo (niente doppio bordo/sfondo)
+                btn.style.setProperty('width', '100%', 'important');
+                btn.style.setProperty('height', '100%', 'important');
+                btn.style.setProperty('margin', '0', 'important');
+                btn.style.setProperty('padding', '0', 'important');
+                btn.style.setProperty('background', 'transparent', 'important');
+                btn.style.setProperty('border', 'none', 'important');
+                btn.style.setProperty('box-shadow', 'none', 'important');
+                btn.style.setProperty('display', 'flex', 'important');
+                btn.style.setProperty('align-items', 'center', 'important');
+                btn.style.setProperty('justify-content', 'center', 'important');
+                btn.style.setProperty('cursor', 'pointer', 'important');
+                btn.style.setProperty('min-height', '0', 'important');
+
+                // Nasconde la freccia Material originale
+                span.style.setProperty('display', 'none', 'important');
+
+                // Inserisce lente + freccina, stesso formato del pulsante stellina "⭐ ›"
+                if (!btn.querySelector('.custom-lens-icon')) {
+                    const lens = doc.createElement('span');
+                    lens.className = 'custom-lens-icon';
+                    lens.textContent = '🔍 ›';
+                    lens.style.fontSize = '1.15rem';
+                    lens.style.fontWeight = 'bold';
+                    lens.style.color = '#2ecc71';
+                    lens.style.pointerEvents = 'none';
+                    lens.style.whiteSpace = 'nowrap';
+                    btn.appendChild(lens);
+                }
+            });
+        }
+
+        const observer = new MutationObserver(styleSidebarToggle);
+        observer.observe(doc.body, { childList: true, subtree: true });
+        styleSidebarToggle();
+    })();
+    </script>
+    """,
+    height=0,
 )
 
 SQUADRA_ABBR = {
