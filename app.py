@@ -482,7 +482,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-import streamlit.components.v1 as components
 
 components.html(
     """
@@ -490,26 +489,15 @@ components.html(
     (function() {
         const doc = window.parent.document;
 
-        const COMMON_STYLE = {
-            width: '48px',
-            height: '58px',
-            boxSizing: 'border-box',
-            top: '23vh',
-            zIndex: '999999',
-            background: '#0f380f',
-            border: '2px solid #2ecc71',
-            boxShadow: '4px 4px 12px rgba(0,0,0,0.5)',
-        };
-
-        function applyCommon(el, extra) {
+        function applyCommon(el) {
             el.style.setProperty('box-sizing', 'border-box', 'important');
-            el.style.setProperty('width', COMMON_STYLE.width, 'important');
-            el.style.setProperty('height', COMMON_STYLE.height, 'important');
-            el.style.setProperty('top', COMMON_STYLE.top, 'important');
-            el.style.setProperty('z-index', COMMON_STYLE.zIndex, 'important');
-            el.style.setProperty('background', COMMON_STYLE.background, 'important');
-            el.style.setProperty('border', COMMON_STYLE.border, 'important');
-            el.style.setProperty('box-shadow', COMMON_STYLE.boxShadow, 'important');
+            el.style.setProperty('width', '48px', 'important');
+            el.style.setProperty('height', '58px', 'important');
+            el.style.setProperty('top', '23vh', 'important');
+            el.style.setProperty('z-index', '999999', 'important');
+            el.style.setProperty('background', '#0f380f', 'important');
+            el.style.setProperty('border', '2px solid #2ecc71', 'important');
+            el.style.setProperty('box-shadow', '4px 4px 12px rgba(0,0,0,0.5)', 'important');
             el.style.setProperty('margin', '0', 'important');
             el.style.setProperty('padding', '0', 'important');
             el.style.setProperty('display', 'flex', 'important');
@@ -517,7 +505,6 @@ components.html(
             el.style.setProperty('justify-content', 'center', 'important');
             el.style.setProperty('cursor', 'pointer', 'important');
             el.style.setProperty('overflow', 'hidden', 'important');
-            Object.assign(el.style, extra || {});
         }
 
         function styleSidebarToggle() {
@@ -527,6 +514,11 @@ components.html(
                 const txt = span.textContent.trim();
                 const btn = span.closest('button');
                 if (!btn) return;
+                if (txt !== 'keyboard_double_arrow_right' && txt !== 'keyboard_double_arrow_left') return;
+
+                // Marca il bottone come già processato: se questa run non deve
+                // ricalcolare nulla di dinamico, saltiamo subito per evitare lavoro inutile.
+                const alreadyDone = btn.getAttribute('data-styled-toggle') === txt;
 
                 let lens = btn.querySelector('.custom-lens-icon');
                 if (!lens) {
@@ -540,40 +532,47 @@ components.html(
                     btn.appendChild(lens);
                 }
 
-                // ---- CASO 1: SIDEBAR CHIUSA -> Tab flottante sul bordo sinistro dello schermo ----
                 if (txt === 'keyboard_double_arrow_right') {
-                    btn.style.setProperty('position', 'fixed', 'important');
-                    btn.style.setProperty('left', '0px', 'important');
-                    btn.style.setProperty('right', 'auto', 'important');
-                    btn.style.setProperty('border-left', 'none', 'important');
-                    btn.style.setProperty('border-radius', '0 10px 10px 0', 'important');
-                    applyCommon(btn);
-
-                    span.style.setProperty('display', 'none', 'important');
-                    lens.textContent = '🔍 ›';
+                    if (!alreadyDone) {
+                        btn.style.setProperty('position', 'fixed', 'important');
+                        btn.style.setProperty('left', '0px', 'important');
+                        btn.style.setProperty('right', 'auto', 'important');
+                        btn.style.setProperty('border-left', 'none', 'important');
+                        btn.style.setProperty('border-radius', '0 10px 10px 0', 'important');
+                        applyCommon(btn);
+                        span.style.setProperty('display', 'none', 'important');
+                        lens.textContent = '🔍 ›';
+                        btn.setAttribute('data-styled-toggle', txt);
+                    }
                 }
 
-                // ---- CASO 2: SIDEBAR APERTA -> Tab ancorata sul bordo destro della Sidebar ----
                 if (txt === 'keyboard_double_arrow_left') {
-                    // Recupera la larghezza effettiva della sidebar aperta
+                    // Qui SERVE ricalcolare la larghezza della sidebar ogni volta
+                    // (può cambiare), quindi non blocchiamo con il flag "alreadyDone".
                     const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
                     const sidebarWidth = sidebar ? sidebar.getBoundingClientRect().width : 336;
+                    const newLeft = sidebarWidth + 'px';
 
-                    btn.style.setProperty('position', 'fixed', 'important');
-                    btn.style.setProperty('left', sidebarWidth + 'px', 'important');
-                    btn.style.setProperty('right', 'auto', 'important');
-                    btn.style.setProperty('border-left', 'none', 'important');
-                    btn.style.setProperty('border-radius', '0 10px 10px 0', 'important');
-                    applyCommon(btn);
-
-                    span.style.setProperty('display', 'none', 'important');
-                    lens.textContent = '🔍 ‹';
+                    // Applichiamo SOLO se il valore è effettivamente cambiato,
+                    // per non generare mutazioni inutili.
+                    if (btn.style.left !== newLeft) {
+                        btn.style.setProperty('position', 'fixed', 'important');
+                        btn.style.setProperty('left', newLeft, 'important');
+                        btn.style.setProperty('right', 'auto', 'important');
+                        btn.style.setProperty('border-left', 'none', 'important');
+                        btn.style.setProperty('border-radius', '0 10px 10px 0', 'important');
+                        applyCommon(btn);
+                        span.style.setProperty('display', 'none', 'important');
+                        lens.textContent = '🔍 ‹';
+                    }
                 }
             });
         }
 
+        // NIENTE "attributes: true": osserviamo solo l'aggiunta/rimozione di nodi,
+        // non le modifiche di stile che facciamo noi stessi (altrimenti loop infinito).
         const observer = new MutationObserver(styleSidebarToggle);
-        observer.observe(doc.body, { childList: true, subtree: true, attributes: true });
+        observer.observe(doc.body, { childList: true, subtree: true });
         styleSidebarToggle();
     })();
     </script>
