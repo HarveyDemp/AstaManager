@@ -490,70 +490,87 @@ components.html(
     (function() {
         const doc = window.parent.document;
 
+        const COMMON_STYLE = {
+            width: '48px',
+            height: '58px',
+            boxSizing: 'border-box',
+            top: '23vh',
+            zIndex: '999999',
+            background: '#0f380f',
+            border: '2px solid #2ecc71',
+            boxShadow: '4px 4px 12px rgba(0,0,0,0.5)',
+        };
+
+        function applyCommon(el, extra) {
+            el.style.setProperty('box-sizing', 'border-box', 'important');
+            el.style.setProperty('width', COMMON_STYLE.width, 'important');
+            el.style.setProperty('height', COMMON_STYLE.height, 'important');
+            el.style.setProperty('top', COMMON_STYLE.top, 'important');
+            el.style.setProperty('z-index', COMMON_STYLE.zIndex, 'important');
+            el.style.setProperty('background', COMMON_STYLE.background, 'important');
+            el.style.setProperty('border', COMMON_STYLE.border, 'important');
+            el.style.setProperty('box-shadow', COMMON_STYLE.boxShadow, 'important');
+            el.style.setProperty('margin', '0', 'important');
+            el.style.setProperty('padding', '0', 'important');
+            el.style.setProperty('display', 'flex', 'important');
+            el.style.setProperty('align-items', 'center', 'important');
+            el.style.setProperty('justify-content', 'center', 'important');
+            el.style.setProperty('cursor', 'pointer', 'important');
+            el.style.setProperty('overflow', 'hidden', 'important');
+            Object.assign(el.style, extra || {});
+        }
+
         function styleSidebarToggle() {
             const icons = doc.querySelectorAll('span[data-testid="stIconMaterial"]');
 
             icons.forEach(span => {
                 const txt = span.textContent.trim();
-                if (txt !== 'keyboard_double_arrow_right') return;
-
                 const btn = span.closest('button');
                 if (!btn) return;
 
-                // Il vero elemento "cliccabile visibile" può essere un contenitore
-                // esterno al bottone (es. link/div wrapper). Prendiamo il genitore
-                // più esterno ragionevole per applicare le dimensioni fisse una volta sola,
-                // così NON ci sono due box sovrapposti.
-                const outer = btn.parentElement || btn;
+                // ---- CASO 1: sidebar CHIUSA -> tab flottante fuori, lente + freccia destra ----
+                if (txt === 'keyboard_double_arrow_right') {
+                    btn.style.setProperty('position', 'fixed', 'important');
+                    btn.style.setProperty('left', '0px', 'important');
+                    btn.style.setProperty('border-left', 'none', 'important');
+                    btn.style.setProperty('border-radius', '0 10px 10px 0', 'important');
+                    applyCommon(btn);
 
-                [outer, btn].forEach(el => {
-                    el.style.setProperty('position', el === outer ? 'fixed' : 'static', 'important');
-                });
+                    span.style.setProperty('display', 'none', 'important');
 
-                outer.style.setProperty('position', 'fixed', 'important');
-                outer.style.setProperty('top', '23vh', 'important');
-                outer.style.setProperty('left', '0px', 'important');
-                outer.style.setProperty('z-index', '999999', 'important');
-                outer.style.setProperty('width', '48px', 'important');
-                outer.style.setProperty('height', '58px', 'important');
-                outer.style.setProperty('margin', '0', 'important');
-                outer.style.setProperty('padding', '0', 'important');
-                outer.style.setProperty('background', '#0f380f', 'important');
-                outer.style.setProperty('border', '2px solid #2ecc71', 'important');
-                outer.style.setProperty('border-left', 'none', 'important');
-                outer.style.setProperty('border-radius', '0 10px 10px 0', 'important');
-                outer.style.setProperty('box-shadow', '4px 4px 12px rgba(0,0,0,0.5)', 'important');
-                outer.style.setProperty('overflow', 'hidden', 'important');
+                    if (!btn.querySelector('.custom-lens-icon')) {
+                        const lens = doc.createElement('span');
+                        lens.className = 'custom-lens-icon';
+                        lens.textContent = '🔍 ›';
+                        lens.style.fontSize = '1.15rem';
+                        lens.style.fontWeight = 'bold';
+                        lens.style.color = '#2ecc71';
+                        lens.style.pointerEvents = 'none';
+                        lens.style.whiteSpace = 'nowrap';
+                        btn.appendChild(lens);
+                    }
+                }
 
-                // Il bottone interno riempie completamente il contenitore,
-                // senza il suo stile nativo (niente doppio bordo/sfondo)
-                btn.style.setProperty('width', '100%', 'important');
-                btn.style.setProperty('height', '100%', 'important');
-                btn.style.setProperty('margin', '0', 'important');
-                btn.style.setProperty('padding', '0', 'important');
-                btn.style.setProperty('background', 'transparent', 'important');
-                btn.style.setProperty('border', 'none', 'important');
-                btn.style.setProperty('box-shadow', 'none', 'important');
-                btn.style.setProperty('display', 'flex', 'important');
-                btn.style.setProperty('align-items', 'center', 'important');
-                btn.style.setProperty('justify-content', 'center', 'important');
-                btn.style.setProperty('cursor', 'pointer', 'important');
-                btn.style.setProperty('min-height', '0', 'important');
+                // ---- CASO 2: sidebar APERTA -> pulsante per richiuderla, dentro l'header sidebar ----
+                if (txt === 'keyboard_double_arrow_left') {
+                    btn.style.setProperty('position', 'static', 'important');
+                    btn.style.setProperty('border-radius', '10px', 'important');
+                    applyCommon(btn, { top: 'auto' });
+                    btn.style.removeProperty('top');
 
-                // Nasconde la freccia Material originale
-                span.style.setProperty('display', 'none', 'important');
+                    span.style.setProperty('display', 'none', 'important');
 
-                // Inserisce lente + freccina, stesso formato del pulsante stellina "⭐ ›"
-                if (!btn.querySelector('.custom-lens-icon')) {
-                    const lens = doc.createElement('span');
-                    lens.className = 'custom-lens-icon';
-                    lens.textContent = '🔍 ›';
-                    lens.style.fontSize = '1.15rem';
-                    lens.style.fontWeight = 'bold';
-                    lens.style.color = '#2ecc71';
-                    lens.style.pointerEvents = 'none';
-                    lens.style.whiteSpace = 'nowrap';
-                    btn.appendChild(lens);
+                    if (!btn.querySelector('.custom-lens-icon')) {
+                        const lens = doc.createElement('span');
+                        lens.className = 'custom-lens-icon';
+                        lens.textContent = '🔍 ‹';
+                        lens.style.fontSize = '1.15rem';
+                        lens.style.fontWeight = 'bold';
+                        lens.style.color = '#2ecc71';
+                        lens.style.pointerEvents = 'none';
+                        lens.style.whiteSpace = 'nowrap';
+                        btn.appendChild(lens);
+                    }
                 }
             });
         }
@@ -895,65 +912,7 @@ def render_mia_squadra_panel(nome_squadra):
 
 
 
-components.html(
-    """
-    <script>
-    (function() {
-        const doc = window.parent.document;
 
-        function styleSidebarToggle() {
-            const icons = doc.querySelectorAll('span[data-testid="stIconMaterial"]');
-
-            icons.forEach(span => {
-                const txt = span.textContent.trim();
-
-                // Solo l'icona del pulsante che APRE la sidebar quando è chiusa
-                if (txt !== 'keyboard_double_arrow_right') return;
-
-                const btn = span.closest('button');
-                if (!btn) return;
-
-                btn.style.setProperty('position', 'fixed', 'important');
-                btn.style.setProperty('top', '23vh', 'important');
-                btn.style.setProperty('left', '0px', 'important');
-                btn.style.setProperty('z-index', '999999', 'important');
-                btn.style.setProperty('width', '48px', 'important');
-                btn.style.setProperty('height', '58px', 'important');
-                btn.style.setProperty('background', '#0f380f', 'important');
-                btn.style.setProperty('border', '2px solid #2ecc71', 'important');
-                btn.style.setProperty('border-left', 'none', 'important');
-                btn.style.setProperty('border-radius', '0 10px 10px 0', 'important');
-                btn.style.setProperty('box-shadow', '4px 4px 12px rgba(0,0,0,0.5)', 'important');
-                btn.style.setProperty('display', 'flex', 'important');
-                btn.style.setProperty('align-items', 'center', 'important');
-                btn.style.setProperty('justify-content', 'center', 'important');
-                btn.style.setProperty('cursor', 'pointer', 'important');
-                btn.style.setProperty('opacity', '1', 'important');
-                btn.style.setProperty('visibility', 'visible', 'important');
-
-                // Nasconde l'icona Material originale (la freccia)
-                span.style.setProperty('display', 'none', 'important');
-
-                // Inserisce la lente al posto della freccia
-                if (!btn.querySelector('.custom-lens-icon')) {
-                    const lens = doc.createElement('span');
-                    lens.className = 'custom-lens-icon';
-                    lens.textContent = '🔍';
-                    lens.style.fontSize = '1.2rem';
-                    lens.style.pointerEvents = 'none';
-                    btn.appendChild(lens);
-                }
-            });
-        }
-
-        const observer = new MutationObserver(styleSidebarToggle);
-        observer.observe(doc.body, { childList: true, subtree: true });
-        styleSidebarToggle();
-    })();
-    </script>
-    """,
-    height=0,
-)
 
 if "app_mode" not in st.session_state:
     st.session_state.app_mode = "menu"
