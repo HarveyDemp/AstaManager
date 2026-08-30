@@ -509,7 +509,6 @@ components.html(
             el.style.setProperty('width', '48px', 'important');
             el.style.setProperty('height', '58px', 'important');
             el.style.setProperty('top', '23vh', 'important');
-            el.style.setProperty('transform', 'translateY(-50%)', 'important');
             el.style.setProperty('z-index', '999999', 'important');
             el.style.setProperty('background', '#0f380f', 'important');
             el.style.setProperty('border', '2px solid #2ecc71', 'important');
@@ -523,50 +522,7 @@ components.html(
             el.style.setProperty('overflow', 'hidden', 'important');
         }
 
-        function getSidebarRight() {
-            const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
-            if (!sidebar) return 336;
-            const rect = sidebar.getBoundingClientRect();
-            if (rect.right > 0 && rect.width > 0) {
-                return Math.round(rect.right);
-            }
-            if (sidebar.offsetWidth > 0) {
-                return Math.round(sidebar.offsetWidth);
-            }
-            return 336;
-        }
-
-        let resizeObs = null;
-        function observeSidebar() {
-            const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
-            if (sidebar && !sidebar._hasResizeObs) {
-                if (!resizeObs) {
-                    resizeObs = new ResizeObserver(() => {
-                        styleSidebarToggle();
-                    });
-                }
-                resizeObs.observe(sidebar);
-                sidebar._hasResizeObs = true;
-            }
-        }
-
-        function ensureLens(btn) {
-            let lens = btn.querySelector('.custom-lens-icon');
-            if (!lens) {
-                lens = doc.createElement('span');
-                lens.className = 'custom-lens-icon';
-                lens.style.fontSize = '1.15rem';
-                lens.style.fontWeight = 'bold';
-                lens.style.color = '#2ecc71';
-                lens.style.pointerEvents = 'none';
-                lens.style.whiteSpace = 'nowrap';
-                btn.appendChild(lens);
-            }
-            return lens;
-        }
-
         function styleSidebarToggle() {
-            observeSidebar();
             const icons = doc.querySelectorAll('span[data-testid="stIconMaterial"]');
 
             icons.forEach(span => {
@@ -575,10 +531,24 @@ components.html(
                 if (!btn) return;
                 if (txt !== 'keyboard_double_arrow_right' && txt !== 'keyboard_double_arrow_left') return;
 
-                const lens = ensureLens(btn);
+                // Marca il bottone come già processato: se questa run non deve
+                // ricalcolare nulla di dinamico, saltiamo subito per evitare lavoro inutile.
+                const alreadyDone = btn.getAttribute('data-styled-toggle') === txt;
+
+                let lens = btn.querySelector('.custom-lens-icon');
+                if (!lens) {
+                    lens = doc.createElement('span');
+                    lens.className = 'custom-lens-icon';
+                    lens.style.fontSize = '1.15rem';
+                    lens.style.fontWeight = 'bold';
+                    lens.style.color = '#2ecc71';
+                    lens.style.pointerEvents = 'none';
+                    lens.style.whiteSpace = 'nowrap';
+                    btn.appendChild(lens);
+                }
 
                 if (txt === 'keyboard_double_arrow_right') {
-                    if (btn.style.left !== '0px' || btn.getAttribute('data-styled-toggle') !== txt) {
+                    if (!alreadyDone) {
                         btn.style.setProperty('position', 'fixed', 'important');
                         btn.style.setProperty('left', '0px', 'important');
                         btn.style.setProperty('right', 'auto', 'important');
@@ -592,8 +562,15 @@ components.html(
                 }
 
                 if (txt === 'keyboard_double_arrow_left') {
-                    const newLeft = getSidebarRight() + 'px';
-                    if (btn.style.left !== newLeft || btn.getAttribute('data-styled-toggle') !== txt) {
+                    // Qui SERVE ricalcolare la larghezza della sidebar ogni volta
+                    // (può cambiare), quindi non blocchiamo con il flag "alreadyDone".
+                    const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
+                    const sidebarWidth = sidebar ? sidebar.getBoundingClientRect().width : 336;
+                    const newLeft = sidebarWidth + 'px';
+
+                    // Applichiamo SOLO se il valore è effettivamente cambiato,
+                    // per non generare mutazioni inutili.
+                    if (btn.style.left !== newLeft) {
                         btn.style.setProperty('position', 'fixed', 'important');
                         btn.style.setProperty('left', newLeft, 'important');
                         btn.style.setProperty('right', 'auto', 'important');
@@ -602,44 +579,16 @@ components.html(
                         applyCommon(btn);
                         span.style.setProperty('display', 'none', 'important');
                         lens.textContent = '🔍 ‹';
-                        btn.setAttribute('data-styled-toggle', txt);
                     }
                 }
             });
         }
 
-        let animationFrameId = null;
-        function startTracking(duration = 500) {
-            if (animationFrameId) cancelAnimationFrame(animationFrameId);
-            const start = performance.now();
-            function tick(now) {
-                styleSidebarToggle();
-                if (now - start < duration) {
-                    animationFrameId = requestAnimationFrame(tick);
-                }
-            }
-            animationFrameId = requestAnimationFrame(tick);
-        }
-
-        const observer = new MutationObserver(() => {
-            styleSidebarToggle();
-        });
+        // NIENTE "attributes: true": osserviamo solo l'aggiunta/rimozione di nodi,
+        // non le modifiche di stile che facciamo noi stessi (altrimenti loop infinito).
+        const observer = new MutationObserver(styleSidebarToggle);
         observer.observe(doc.body, { childList: true, subtree: true });
-
-        doc.addEventListener('click', (e) => {
-            if (e.target && (e.target.closest('button') || e.target.closest('[data-testid*="Sidebar"]'))) {
-                startTracking(600);
-            }
-        }, true);
-
-        doc.addEventListener('transitionstart', () => startTracking(500), true);
-        doc.addEventListener('transitionend', () => styleSidebarToggle(), true);
-        doc.addEventListener('animationend', () => styleSidebarToggle(), true);
-        window.addEventListener('resize', styleSidebarToggle);
-
-        setInterval(styleSidebarToggle, 250);
         styleSidebarToggle();
-        startTracking(600);
     })();
     </script>
     """,
