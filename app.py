@@ -528,55 +528,52 @@ components.html(
                 const btn = span.closest('button');
                 if (!btn) return;
 
-                // ---- CASO 1: sidebar CHIUSA -> tab flottante fuori, lente + freccia destra ----
+                let lens = btn.querySelector('.custom-lens-icon');
+                if (!lens) {
+                    lens = doc.createElement('span');
+                    lens.className = 'custom-lens-icon';
+                    lens.style.fontSize = '1.15rem';
+                    lens.style.fontWeight = 'bold';
+                    lens.style.color = '#2ecc71';
+                    lens.style.pointerEvents = 'none';
+                    lens.style.whiteSpace = 'nowrap';
+                    btn.appendChild(lens);
+                }
+
+                // ---- CASO 1: SIDEBAR CHIUSA -> Tab flottante sul bordo sinistro dello schermo ----
                 if (txt === 'keyboard_double_arrow_right') {
                     btn.style.setProperty('position', 'fixed', 'important');
                     btn.style.setProperty('left', '0px', 'important');
+                    btn.style.setProperty('right', 'auto', 'important');
                     btn.style.setProperty('border-left', 'none', 'important');
                     btn.style.setProperty('border-radius', '0 10px 10px 0', 'important');
                     applyCommon(btn);
 
                     span.style.setProperty('display', 'none', 'important');
-
-                    if (!btn.querySelector('.custom-lens-icon')) {
-                        const lens = doc.createElement('span');
-                        lens.className = 'custom-lens-icon';
-                        lens.textContent = '🔍 ›';
-                        lens.style.fontSize = '1.15rem';
-                        lens.style.fontWeight = 'bold';
-                        lens.style.color = '#2ecc71';
-                        lens.style.pointerEvents = 'none';
-                        lens.style.whiteSpace = 'nowrap';
-                        btn.appendChild(lens);
-                    }
+                    lens.textContent = '🔍 ›';
                 }
 
-                // ---- CASO 2: sidebar APERTA -> pulsante per richiuderla, dentro l'header sidebar ----
+                // ---- CASO 2: SIDEBAR APERTA -> Tab ancorata sul bordo destro della Sidebar ----
                 if (txt === 'keyboard_double_arrow_left') {
-                    btn.style.setProperty('position', 'static', 'important');
-                    btn.style.setProperty('border-radius', '10px', 'important');
-                    applyCommon(btn, { top: 'auto' });
-                    btn.style.removeProperty('top');
+                    // Recupera la larghezza effettiva della sidebar aperta
+                    const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
+                    const sidebarWidth = sidebar ? sidebar.getBoundingClientRect().width : 336;
+
+                    btn.style.setProperty('position', 'fixed', 'important');
+                    btn.style.setProperty('left', sidebarWidth + 'px', 'important');
+                    btn.style.setProperty('right', 'auto', 'important');
+                    btn.style.setProperty('border-left', 'none', 'important');
+                    btn.style.setProperty('border-radius', '0 10px 10px 0', 'important');
+                    applyCommon(btn);
 
                     span.style.setProperty('display', 'none', 'important');
-
-                    if (!btn.querySelector('.custom-lens-icon')) {
-                        const lens = doc.createElement('span');
-                        lens.className = 'custom-lens-icon';
-                        lens.textContent = '🔍 ‹';
-                        lens.style.fontSize = '1.15rem';
-                        lens.style.fontWeight = 'bold';
-                        lens.style.color = '#2ecc71';
-                        lens.style.pointerEvents = 'none';
-                        lens.style.whiteSpace = 'nowrap';
-                        btn.appendChild(lens);
-                    }
+                    lens.textContent = '🔍 ‹';
                 }
             });
         }
 
         const observer = new MutationObserver(styleSidebarToggle);
-        observer.observe(doc.body, { childList: true, subtree: true });
+        observer.observe(doc.body, { childList: true, subtree: true, attributes: true });
         styleSidebarToggle();
     })();
     </script>
