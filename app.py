@@ -16,7 +16,22 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🗄️ CONNESSIONE SUPABASE
+# 🗄️ CONNESSIONE SUPABASE (database online per utenti)
+# Richiede in .streamlit/secrets.toml:
+#
+# [connections.supabase_connection]
+# url = "https://TUO-PROGETTO.supabase.co"
+# key = "TUA-ANON-KEY"
+#
+# e nel database una tabella "users" così creata (SQL Editor di Supabase):
+#
+# create table public.users (
+#     username text primary key,
+#     name text not null,
+#     email text not null,
+#     password_hash text not null,
+#     created_at timestamptz not null default now()
+# );
 # ==========================================
 supabase = st.connection(name="supabase_connection", type=SupabaseConnection, ttl=None)
 
@@ -41,6 +56,7 @@ def create_auth_cookie(username: str, name: str):
 
 def verify_auth_cookie():
     token = cookie_controller.get(COOKIE_NAME)
+
     if not token:
         return None
 
@@ -49,13 +65,14 @@ def verify_auth_cookie():
             token,
             max_age=60 * 60 * 24 * COOKIE_MAX_AGE_DAYS
         )
+
     except itsdangerous.SignatureExpired:
         st.warning("Cookie scaduto")
         return None
+
     except itsdangerous.BadSignature as e:
         st.warning(f"Cookie non valido: {e}")
         return None
-
 
 def hash_password(password: str) -> str:
     """Genera l'hash bcrypt di una password in chiaro."""
@@ -93,18 +110,15 @@ def create_user(username: str, name: str, email: str, password: str):
         ttl=0,
     )
 
-
 def do_logout():
     cookie_controller.remove(COOKIE_NAME)
     st.session_state.authentication_status = False
     st.session_state.username = None
     st.session_state.name = None
-    st.session_state.app_mode = "menu"
     st.rerun()
 
-
 # ==========================================
-# 🔐 SCHERMATA LOGIN / REGISTRAZIONE
+# 🔐 SCHERMATA LOGIN / REGISTRAZIONE (backend: Supabase)
 # ==========================================
 if "authentication_status" not in st.session_state:
     st.session_state.authentication_status = False
@@ -115,16 +129,23 @@ if "name" not in st.session_state:
 if "cookie_pending" not in st.session_state:
     st.session_state.cookie_pending = False
 
+# ---- Dopo il login, il cookie ha bisogno di un ciclo di render per essere scritto dal JS.
+#      Al ciclo successivo, cancelliamo il flag e facciamo rerun verso la vista autenticata. ----
 if st.session_state.cookie_pending:
     st.session_state.cookie_pending = False
     st.rerun()
 
-# Auto-login da cookie persistente
+# ---- Prova auto-login da cookie persistente ----
 if not st.session_state.authentication_status:
+    # 1. Recupera la mappa di tutti i cookie attivi dal browser
     cookies = cookie_controller.getAll()
+    
+    # 2. Se il componente non ha ancora terminato la prima lettura dal browser, 
+    # ferma temporaneamente l'esecuzione in attesa della sincronizzazione DOM.
     if cookies is None:
         st.stop()
         
+    # 3. Ora che i cookie sono caricati, verifica il token di autenticazione
     cookie_data = verify_auth_cookie()
     if cookie_data:
         st.session_state.authentication_status = True
@@ -132,6 +153,7 @@ if not st.session_state.authentication_status:
         st.session_state.name = cookie_data["name"]
 
 if not st.session_state.authentication_status:
+
     st.markdown(
         """
         <style>
@@ -165,6 +187,7 @@ if not st.session_state.authentication_status:
         with st.container(border=True):
             tab_login, tab_register = st.tabs(["🔑 Accedi", "📝 Registrati"])
 
+            # ---------------- LOGIN ----------------
             with tab_login:
                 with st.form("form_login", clear_on_submit=False):
                     login_username = st.text_input("Username")
@@ -182,17 +205,24 @@ if not st.session_state.authentication_status:
                             st.error(f"⚠️ Errore di connessione al database: {e}")
                         else:
                             if user_row and verify_password(login_password, user_row["password_hash"]):
+
                                 st.session_state.authentication_status = True
                                 st.session_state.username = user_row["username"]
                                 st.session_state.name = user_row["name"]
-                                create_auth_cookie(user_row["username"], user_row["name"])
+
+                                create_auth_cookie(
+                                    user_row["username"],
+                                    user_row["name"]
+                                )
+
+                                # Non fare rerun subito: il componente JS deve completare
+                                # questo ciclo di render per scrivere il cookie nel browser.
                                 st.session_state.cookie_pending = True
-                            else:
-                                st.error("❌ Credenziali non valide.")
 
                 if st.session_state.authentication_status and not st.session_state.cookie_pending:
                     st.rerun()
 
+            # ---------------- REGISTRAZIONE ----------------
             with tab_register:
                 with st.form("form_register", clear_on_submit=True):
                     reg_name = st.text_input("Nome e Cognome")
@@ -230,15 +260,143 @@ if not st.session_state.authentication_status:
     st.stop()
 
 # ==========================================
-# 🔓 UTENTE AUTENTICATO
+# 🔓 UTENTE AUTENTICATO (HEADER IN ALTO)
 # ==========================================
 user_id = st.session_state.username
 user_name = st.session_state.name or user_id
 
+
+
 # ==========================================
 # STILE CSS PERSONALIZZATO
 # ==========================================
+st.markdown(
+    """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    [data-testid="stHeader"] {
+        background: transparent !important;
+    }
+    
+
+    /* Riduce lo spazio verticale tra i blocchi nell'area principale */
+    section.main div[data-testid="stVerticalBlock"] {
+        gap: 0.5rem;
+    }
+
+    .stApp {
+        background: linear-gradient(135deg, #0f380f 0%, #1e561e 50%, #0f380f 100%);
+        color: #ffffff;
+    }
+
+    /* BARRA LATERALE PREFERITI */
+    [data-testid="stSidebar"] {
+        background-color: rgba(15, 40, 15, 0.98) !important;
+        border-right: 2px solid #2ecc71 !important;
+    }
+
+    /* PULSANTE PER APRIRE / CHIUDERE LA SIDEBAR */
+
+
+    /* =====================================================
+    SIDEBAR APERTA:
+    NON tocchiamo la posizione nativa del pulsante
+    ===================================================== */
+
+    [data-testid="stSidebarCollapseButton"] {
+        position: static !important;
+    }
+
+    [data-testid="stSidebarCollapseButton"] button {
+        background: transparent !important;
+        border: none !important;
+    }
+    /* Sticky Top Container per la barra dell'asta */
+    div[data-testid="stVerticalBlock"] > div:has(div.sticky-header-marker):has([data-testid="stHorizontalBlock"]) {
+        position: sticky;
+        top: 0.1rem;
+        z-index: 999;
+        background-color: rgba(15, 56, 15, 0.95);
+        border: 1.5px solid #2ecc71;
+        border-radius: 12px;
+        padding: 8px 14px;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.6);
+        backdrop-filter: blur(5px);
+    }
+
+    /* Su schermi piccoli (mobile/tablet) disattiva lo sticky: la barra scorre col resto della pagina */
+    @media (max-width: 768px) {
+        div[data-testid="stVerticalBlock"] > div:has(div.sticky-header-marker):has([data-testid="stHorizontalBlock"]) {
+            position: static !important;
+            top: auto !important;
+            backdrop-filter: none !important;
+        }
+    }
+    h1, h2, h3, h4, label {
+        color: #ffffff !important;
+        font-family: 'Trebuchet MS', sans-serif;
+        margin-top: 0 !important;
+    }
+    h2 { margin-bottom: 0.3rem !important; }
+    h4 { margin-bottom: 0.1rem !important; }
+    
+    /* PULSANTI STANDARD */
+    .stButton > button {
+        background-color: #2d3748 !important;
+        color: #ffffff !important;
+        border: 1px solid #4a5568 !important;
+        border-radius: 8px !important;
+        font-weight: bold !important;
+        box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.4) !important;
+    }
+    
+    .stButton > button:hover {
+        background-color: #4a5568 !important;
+        color: #2ecc71 !important;
+        border-color: #2ecc71 !important;
+    }
+
+    .stButton > button:disabled {
+        background-color: #1a202c !important;
+        color: #718096 !important;
+        border-color: #2d3748 !important;
+        opacity: 0.6 !important;
+        cursor: not-allowed !important;
+    }
+
+    .credits-info {
+        font-size: 0.90rem;
+        font-weight: bold;
+        color: #e2e8f0;
+        border-bottom: 1px solid rgba(255,255,255,0.2);
+        padding-bottom: 3px !important;
+        margin-bottom: 4px !important;
+    }
+    .role-header {
+        font-size: 0.80rem;
+        font-weight: bold;
+        color: #94a3b8;
+        margin-top: 5px !important;
+        margin-bottom: 2px !important;
+        padding: 0 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .player-row {
+        font-size: 0.80rem;
+        color: #ffffff;
+        padding: 0px 0 !important;
+        line-height: 18px !important;
+        border-bottom: 1px dashed rgba(255,255,255,0.1);
+    }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+
 CARD_BORDER_COLORS = ["#3b82f6", "#10b981", "#f43f5e", "#a855f7", "#06b6d4", "#f59e0b"]
+
 _card_color_css = ""
 for _idx, _color in enumerate(CARD_BORDER_COLORS):
     _card_color_css += f"""
@@ -255,80 +413,173 @@ for _idx, _color in enumerate(CARD_BORDER_COLORS):
 st.markdown(
     f"""
     <style>
-    #MainMenu {{visibility: hidden;}}
-    footer {{visibility: hidden;}}
-    [data-testid="stHeader"] {{
-        background: transparent !important;
-    }}
-    section.main div[data-testid="stVerticalBlock"] {{
-        gap: 0.5rem;
-    }}
-    .stApp {{
-        background: linear-gradient(135deg, #0f380f 0%, #1e561e 50%, #0f380f 100%);
-        color: #ffffff;
-    }}
-    [data-testid="stSidebar"] {{
-        background-color: rgba(15, 40, 15, 0.98) !important;
-        border-right: 2px solid #2ecc71 !important;
-    }}
-    div[data-testid="stVerticalBlock"] > div:has(div.sticky-header-marker):has([data-testid="stHorizontalBlock"]) {{
-        position: sticky;
-        top: 0.1rem;
-        z-index: 999;
-        background-color: rgba(15, 56, 15, 0.95);
-        border: 1.5px solid #2ecc71;
-        border-radius: 12px;
-        padding: 8px 14px;
-        box-shadow: 0px 4px 15px rgba(0,0,0,0.6);
-        backdrop-filter: blur(5px);
-    }}
-    @media (max-width: 768px) {{
-        div[data-testid="stVerticalBlock"] > div:has(div.sticky-header-marker):has([data-testid="stHorizontalBlock"]) {{
-            position: static !important;
-            top: auto !important;
-            backdrop-filter: none !important;
-        }}
-    }}
-    h1, h2, h3, h4, label {{
-        color: #ffffff !important;
-        font-family: 'Trebuchet MS', sans-serif;
-        margin-top: 0 !important;
-    }}
-    h2 {{ margin-bottom: 0.3rem !important; }}
-    h4 {{ margin-bottom: 0.1rem !important; }}
-    .stButton > button {{
-        background-color: #2d3748 !important;
-        color: #ffffff !important;
-        border: 1px solid #4a5568 !important;
-        border-radius: 8px !important;
-        font-weight: bold !important;
-        box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.4) !important;
-    }}
-    .stButton > button:hover {{
-        background-color: #4a5568 !important;
-        color: #2ecc71 !important;
-        border-color: #2ecc71 !important;
-    }}
     {_card_color_css}
+
+    /* Icone matita/elimina */
     [class*="st-key-iconbtn__"] .stButton > button {{
         background: transparent !important;
+        background-color: transparent !important;
         border: none !important;
         box-shadow: none !important;
+        outline: none !important;
         font-size: 1.15rem !important;
         padding: 0px !important;
+        margin: 0px !important;
         min-height: 0px !important;
         height: auto !important;
         width: auto !important;
+        line-height: 1 !important;
     }}
-    [class*="st-key-iconbtn__"] .stButton > button:hover {{
+    [class*="st-key-iconbtn__"] .stButton > button:hover,
+    [class*="st-key-iconbtn__"] .stButton > button:focus,
+    [class*="st-key-iconbtn__"] .stButton > button:focus:not(:active),
+    [class*="st-key-iconbtn__"] .stButton > button:active {{
         background: transparent !important;
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        outline: none !important;
         transform: scale(1.3);
+    }}
+
+    /* Compatta il layout nelle card squadra */
+    [class*="st-key-teamcard__"] [data-testid="stVerticalBlock"],
+    [class*="st-key-teamcard__"] div[data-testid="stVerticalBlock"] {{
+        gap: 0px !important;
+        row-gap: 0px !important;
+    }}
+    [class*="st-key-teamcard__"] [data-testid="stElementContainer"],
+    [class*="st-key-teamcard__"] div[data-testid="stElementContainer"] {{
+        margin: 0px !important;
+        padding: 0px !important;
+    }}
+    [class*="st-key-teamcard__"] .stMarkdown {{
+        margin: 0 !important;
+        padding: 0 !important;
+    }}
+
+    /* Lista e righe calciatori (solo testo, ultra-compatto) */
+    .player-list {{
+        display: flex;
+        flex-direction: column;
+        gap: 0px !important;
+        margin: 0 0 6px 0 !important;
+        padding: 0 !important;
+    }}
+    .player-row {{
+        font-size: 0.81rem !important;
+        color: #ffffff !important;
+        padding: 1px 0px !important;
+        margin: 0px !important;
+        line-height: 1.25 !important;
+        border-bottom: 1px dashed rgba(255, 255, 255, 0.09) !important;
+        display: block !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }}
     </style>
     """,
     unsafe_allow_html=True,
 )
 
+import streamlit.components.v1 as components
+
+components.html(
+    """
+    <script>
+    (function() {
+        const doc = window.parent.document;
+
+        const COMMON_STYLE = {
+            width: '48px',
+            height: '58px',
+            boxSizing: 'border-box',
+            top: '23vh',
+            zIndex: '999999',
+            background: '#0f380f',
+            border: '2px solid #2ecc71',
+            boxShadow: '4px 4px 12px rgba(0,0,0,0.5)',
+        };
+
+        function applyCommon(el, extra) {
+            el.style.setProperty('box-sizing', 'border-box', 'important');
+            el.style.setProperty('width', COMMON_STYLE.width, 'important');
+            el.style.setProperty('height', COMMON_STYLE.height, 'important');
+            el.style.setProperty('top', COMMON_STYLE.top, 'important');
+            el.style.setProperty('z-index', COMMON_STYLE.zIndex, 'important');
+            el.style.setProperty('background', COMMON_STYLE.background, 'important');
+            el.style.setProperty('border', COMMON_STYLE.border, 'important');
+            el.style.setProperty('box-shadow', COMMON_STYLE.boxShadow, 'important');
+            el.style.setProperty('margin', '0', 'important');
+            el.style.setProperty('padding', '0', 'important');
+            el.style.setProperty('display', 'flex', 'important');
+            el.style.setProperty('align-items', 'center', 'important');
+            el.style.setProperty('justify-content', 'center', 'important');
+            el.style.setProperty('cursor', 'pointer', 'important');
+            el.style.setProperty('overflow', 'hidden', 'important');
+            Object.assign(el.style, extra || {});
+        }
+
+        function styleSidebarToggle() {
+            const icons = doc.querySelectorAll('span[data-testid="stIconMaterial"]');
+
+            icons.forEach(span => {
+                const txt = span.textContent.trim();
+                const btn = span.closest('button');
+                if (!btn) return;
+
+                let lens = btn.querySelector('.custom-lens-icon');
+                if (!lens) {
+                    lens = doc.createElement('span');
+                    lens.className = 'custom-lens-icon';
+                    lens.style.fontSize = '1.15rem';
+                    lens.style.fontWeight = 'bold';
+                    lens.style.color = '#2ecc71';
+                    lens.style.pointerEvents = 'none';
+                    lens.style.whiteSpace = 'nowrap';
+                    btn.appendChild(lens);
+                }
+
+                // ---- CASO 1: SIDEBAR CHIUSA -> Tab flottante sul bordo sinistro dello schermo ----
+                if (txt === 'keyboard_double_arrow_right') {
+                    btn.style.setProperty('position', 'fixed', 'important');
+                    btn.style.setProperty('left', '0px', 'important');
+                    btn.style.setProperty('right', 'auto', 'important');
+                    btn.style.setProperty('border-left', 'none', 'important');
+                    btn.style.setProperty('border-radius', '0 10px 10px 0', 'important');
+                    applyCommon(btn);
+
+                    span.style.setProperty('display', 'none', 'important');
+                    lens.textContent = '🔍 ›';
+                }
+
+                // ---- CASO 2: SIDEBAR APERTA -> Tab ancorata sul bordo destro della Sidebar ----
+                if (txt === 'keyboard_double_arrow_left') {
+                    // Recupera la larghezza effettiva della sidebar aperta
+                    const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
+                    const sidebarWidth = sidebar ? sidebar.getBoundingClientRect().width : 336;
+
+                    btn.style.setProperty('position', 'fixed', 'important');
+                    btn.style.setProperty('left', sidebarWidth + 'px', 'important');
+                    btn.style.setProperty('right', 'auto', 'important');
+                    btn.style.setProperty('border-left', 'none', 'important');
+                    btn.style.setProperty('border-radius', '0 10px 10px 0', 'important');
+                    applyCommon(btn);
+
+                    span.style.setProperty('display', 'none', 'important');
+                    lens.textContent = '🔍 ‹';
+                }
+            });
+        }
+
+        const observer = new MutationObserver(styleSidebarToggle);
+        observer.observe(doc.body, { childList: true, subtree: true, attributes: true });
+        styleSidebarToggle();
+    })();
+    </script>
+    """,
+    height=0,
+)
 SQUADRA_ABBR = {
     "Atalanta": "ATA", "Bologna": "BOL", "Cagliari": "CAG", "Como": "COM",
     "Fiorentina": "FIO", "Frosinone": "FRO", "Genoa": "GEN", "Inter": "INT",
@@ -338,7 +589,6 @@ SQUADRA_ABBR = {
 }
 
 MAX_SLOTS = {"P": 3, "D": 8, "C": 8, "A": 6}
-
 
 @st.cache_data
 def load_data():
@@ -358,12 +608,11 @@ def load_data():
         
     return listone_df, formazioni_df
 
-
 listone_df, formazioni_df = load_data()
 PLAYER_TO_ROLE = dict(zip(listone_df["Nome"], listone_df["R"]))
 
-
 def save_asta_to_file():
+    """Salva (o aggiorna) lo stato corrente dell'asta su Supabase, legata all'utente proprietario."""
     nome_asta = st.session_state.session_info["nome_asta"]
     data_to_save = {
         "session_info": st.session_state.session_info,
@@ -386,6 +635,7 @@ def save_asta_to_file():
 
 
 def list_aste_utente():
+    """Ritorna la lista delle aste salvate dall'utente, con nome, data e modalità, più recenti prima."""
     result = execute_query(
         supabase.table("aste")
         .select("nome_asta, updated_at, stato_json")
@@ -400,6 +650,7 @@ def list_aste_utente():
 
 
 def load_asta_from_file(nome_asta):
+    """Carica lo stato di un'asta salvata dal proprietario corrente, identificata per nome."""
     result = execute_query(
         supabase.table("aste")
         .select("stato_json")
@@ -409,71 +660,151 @@ def load_asta_from_file(nome_asta):
     )
     if not result.data:
         st.error("❌ Asta non trovata.")
-        return False
+        return
     data = result.data[0]["stato_json"]
     st.session_state.session_info = data["session_info"]
     st.session_state.asta_state = data["asta_state"]
     st.session_state.preferiti = data.get("preferiti", [])
     st.session_state.app_mode = "in_asta"
-    return True
-
 
 @st.fragment
 def render_mia_squadra_panel(nome_squadra):
+    """Pannello apribile/chiudibile a destra con la rosa dell'utente.
+    Decorato come fragment: il toggle apri/chiudi NON ricarica l'intera pagina."""
+
     is_open = st.session_state.mia_rosa_open
     panel_width = 280
 
     st.markdown(
         f"""
         <style>
+
+        /* =====================================================
+           PANNELLO ROSA A DESTRA
+           Sovrapposto al contenuto: NON restringe la pagina
+           ===================================================== */
+
         [class*="st-key-mia_rosa_panel"] {{
             position: fixed !important;
             top: 3.6rem !important;
             right: {0 if is_open else -panel_width}px !important;
+
             width: {panel_width}px !important;
             height: calc(100vh - 4.4rem) !important;
+
             overflow-y: auto;
+
             background: rgba(15, 40, 15, 0.98) !important;
             border-left: 2px solid #2ecc71 !important;
+
             padding: 14px 12px !important;
+
             z-index: 10000 !important;
             box-shadow: -6px 0 18px rgba(0,0,0,0.45);
+
             transition: right 0.2s ease-in-out;
         }}
+
+
+        /* =====================================================
+           LINGUETTA DESTRA
+           Più in alto rispetto al centro
+           ===================================================== */
+
         [class*="st-key-mia_rosa_toggle"] {{
             position: fixed !important;
+
             top: 23vh !important;
             right: {panel_width if is_open else 0}px !important;
+
             transform: translateY(-50%) !important;
+
             z-index: 20000 !important;
+
             width: auto !important;
+            min-width: 0 !important;
+
+            margin: 0 !important;
+            padding: 0 !important;
+
             transition: right 0.2s ease-in-out;
         }}
+
+        [class*="st-key-mia_rosa_toggle"] > div {{
+            width: auto !important;
+        }}
+
+        [class*="st-key-mia_rosa_toggle"] .stButton {{
+            width: auto !important;
+        }}
+
         [class*="st-key-mia_rosa_toggle"] .stButton > button {{
             width: 48px !important;
             min-width: 48px !important;
+
             height: 58px !important;
+
             padding: 8px 7px !important;
+
             color: #2ecc71 !important;
             background: #0f380f !important;
+
             border: 2px solid #2ecc71 !important;
             border-right: none !important;
+
             border-radius: 10px 0 0 10px !important;
+
             font-size: 1.15rem !important;
             font-weight: bold !important;
+
             box-shadow: -4px 4px 12px rgba(0,0,0,0.5) !important;
+
+            cursor: pointer !important;
         }}
-        .mia-rosa-title {{ font-size: 1.05rem; font-weight: 800; color: #ffffff; margin-bottom: 4px; }}
-        .mia-rosa-credits {{ font-size: 0.85rem; font-weight: bold; color: #e2e8f0; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 6px; margin-bottom: 8px; }}
+
+        [class*="st-key-mia_rosa_toggle"] .stButton > button:hover {{
+            background: #145a14 !important;
+            color: #ffffff !important;
+        }}
+
+
+        /* =====================================================
+           TITOLO / CREDITI
+           ===================================================== */
+
+        .mia-rosa-title {{
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 4px;
+        }}
+
+        .mia-rosa-credits {{
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #e2e8f0;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 6px;
+            margin-bottom: 8px;
+        }}
+
         </style>
         """,
         unsafe_allow_html=True,
     )
 
+    # =========================================================
+    # BOTTONE TOGGLE
+    # =========================================================
+
     with st.container(key="mia_rosa_toggle"):
-        if st.button("⭐ ›" if is_open else "⭐ ‹", key="btn_toggle_mia_rosa"):
+        if st.button(
+            "⭐ ›" if is_open else "⭐ ‹",
+            key="btn_toggle_mia_rosa"
+        ):
             st.session_state.mia_rosa_open = not st.session_state.mia_rosa_open
             st.rerun(scope="fragment")
+
     
     if not is_open:
         return
@@ -481,38 +812,104 @@ def render_mia_squadra_panel(nome_squadra):
     team_data = st.session_state.asta_state["squadre"][nome_squadra]
 
     with st.container(key="mia_rosa_panel"):
-        st.markdown(f'<div class="mia-rosa-title">⭐ {nome_squadra}</div>', unsafe_allow_html=True)
+
         st.markdown(
-            f'<div class="mia-rosa-credits">Crediti: <span style="color:#2ecc71;">{team_data["crediti_residui"]}</span> / {team_data["budget_iniziale"]}</div>',
+            f'<div class="mia-rosa-title">⭐ {nome_squadra}</div>',
             unsafe_allow_html=True
         )
 
-        role_names_panel = {"P": "Portieri", "D": "Difensori", "C": "Centrocampisti", "A": "Attaccanti"}
-        players_by_role = {"P": [], "D": [], "C": [], "A": []}
+        st.markdown(
+            f'<div class="mia-rosa-credits">'
+            f'Crediti: '
+            f'<span style="color:#2ecc71;">'
+            f'{team_data["crediti_residui"]}'
+            f'</span> / {team_data["budget_iniziale"]}'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+        role_names_panel = {
+            "P": "Portieri",
+            "D": "Difensori",
+            "C": "Centrocampisti",
+            "A": "Attaccanti"
+        }
+
+        players_by_role = {
+            "P": [],
+            "D": [],
+            "C": [],
+            "A": []
+        }
 
         for p in team_data["rosa"]:
-            r = p.get("Ruolo", PLAYER_TO_ROLE.get(p["Nome"], "C"))
+            r = p.get(
+                "Ruolo",
+                PLAYER_TO_ROLE.get(p["Nome"], "C")
+            )
+
             if r in players_by_role:
                 players_by_role[r].append(p)
 
         if not team_data["rosa"]:
-            st.markdown("<p style='font-size:0.85rem; color:#cbd5e1; font-style:italic;'>Rosa ancora vuota.</p>", unsafe_allow_html=True)
+
+            st.markdown(
+                "<p style='font-size:0.85rem; "
+                "color:#cbd5e1; "
+                "font-style:italic;'>"
+                "Rosa ancora vuota.</p>",
+                unsafe_allow_html=True
+            )
+
         else:
+
             for r_code in ["P", "D", "C", "A"]:
+
                 r_list = players_by_role[r_code]
                 max_s = MAX_SLOTS[r_code]
-                role_html = f"<div class='role-header'>{role_names_panel[r_code]} ({len(r_list)}/{max_s})</div>"
+
+                role_html = (
+                    f"<div class='role-header'>"
+                    f"{role_names_panel[r_code]} "
+                    f"({len(r_list)}/{max_s})"
+                    f"</div>"
+                )
+
                 if r_list:
+
                     players_html = "<div class='player-list'>"
+
                     for p_item in r_list:
-                        players_html += f"<div class='player-row'>• {p_item['Nome']} — {p_item['Prezzo']} cr</div>"
+
+                        players_html += (
+                            f"<div class='player-row'>"
+                            f"• {p_item['Nome']} — "
+                            f"{p_item['Prezzo']} cr"
+                            f"</div>"
+                        )
+
                     players_html += "</div>"
-                    st.markdown(role_html + players_html, unsafe_allow_html=True)
+
+                    st.markdown(
+                        role_html + players_html,
+                        unsafe_allow_html=True
+                    )
+
                 else:
-                    st.markdown(role_html + "<div class='player-row' style='color:#94a3b8; font-style:italic;'>Nessuno</div>", unsafe_allow_html=True)
+
+                    st.markdown(
+                        role_html +
+                        "<div class='player-row' "
+                        "style='color:#94a3b8; "
+                        "font-style:italic;'>"
+                        "Nessuno</div>",
+                        unsafe_allow_html=True
+                    )
 
 
-# Inizializzazione Session State
+
+
+
 if "app_mode" not in st.session_state:
     st.session_state.app_mode = "menu"
 if "mia_rosa_open" not in st.session_state:
@@ -521,6 +918,7 @@ if "preferiti" not in st.session_state:
     st.session_state.preferiti = []
 if "_reset_player_search" not in st.session_state:
     st.session_state._reset_player_search = False
+# Se il flag è attivo, resetta la selectbox PRIMA che venga istanziata in questa run
 if st.session_state._reset_player_search:
     st.session_state["player_search_select"] = None
     st.session_state["search_filter_text"] = ""
@@ -532,12 +930,14 @@ if "confirm_delete_team" not in st.session_state:
 if "confirm_delete_player" not in st.session_state:
     st.session_state.confirm_delete_player = None
 
-
-# Dialog Modali
+# ==========================================
+# 💬 DIALOG POP-UP MODALI IN SOVRAIMPRESSIONE
+# ==========================================
 @st.dialog("⚠️ Conferma Eliminazione Squadra")
 def dialog_delete_team(target_team):
     st.write(f"Sei sicuro di voler eliminare definitivamente la squadra **'{target_team}'**?")
     st.warning("⚠️ Tutti i suoi calciatori torneranno liberi nel listone.")
+    st.write("")
     col1, col2 = st.columns(2)
     if col1.button("✅ Sì, Elimina", key="dlg_del_team_yes", use_container_width=True):
         for p_name, p_info in list(st.session_state.asta_state["giocatori_acquistati"].items()):
@@ -546,19 +946,19 @@ def dialog_delete_team(target_team):
         if target_team in st.session_state.asta_state["squadre"]:
             del st.session_state.asta_state["squadre"][target_team]
         st.session_state.confirm_delete_team = None
-        st.session_state.editing_team = None
+        st.session_state.editing_team = None  # Chiudi menu matita
         save_asta_to_file()
         st.rerun()
     if col2.button("❌ Annulla", key="dlg_del_team_no", use_container_width=True):
         st.session_state.confirm_delete_team = None
-        st.session_state.editing_team = None
+        st.session_state.editing_team = None  # Chiudi menu matita
         st.rerun()
-
 
 @st.dialog("⚠️ Conferma Svincolo Calciatore")
 def dialog_delete_player(info):
     st.write(f"Rimuovere **{info['nome']}** dalla rosa di **{info['team']}**?")
     st.info(f"💰 Verranno rimborsati **{info['prezzo']} crediti** a **{info['team']}**.")
+    st.write("")
     col1, col2 = st.columns(2)
     if col1.button("✅ Sì, Rimuovi", key="dlg_del_p_yes", use_container_width=True):
         t_data = st.session_state.asta_state["squadre"].get(info["team"])
@@ -568,13 +968,14 @@ def dialog_delete_player(info):
         if info["nome"] in st.session_state.asta_state["giocatori_acquistati"]:
             del st.session_state.asta_state["giocatori_acquistati"][info["nome"]]
         st.session_state.confirm_delete_player = None
-        st.session_state.editing_team = None
+        st.session_state.editing_team = None  # Chiudi menu matita automaticamente
         save_asta_to_file()
         st.rerun()
     if col2.button("❌ Annulla", key="dlg_del_p_no", use_container_width=True):
         st.session_state.confirm_delete_player = None
-        st.session_state.editing_team = None
+        st.session_state.editing_team = None  # Chiudi menu matita automaticamente
         st.rerun()
+
 
 
 # ==========================================
@@ -611,7 +1012,7 @@ if st.session_state.app_mode == "menu":
             nome_mia_squadra_input = st.text_input("Nome della tua Squadra", value="La Mia Squadra")
             budget_default = st.number_input("Budget Iniziale Crediti", min_value=100, value=500)
 
-        if st.button("🚀 Avvia Nuova Asta", use_container_width=True):
+        if st.button("🚀 Avvia Nuova Asta"):
             if nome_nuova_asta.strip():
                 st.session_state.session_info = {"nome_asta": nome_nuova_asta.strip()}
 
@@ -648,8 +1049,8 @@ if st.session_state.app_mode == "menu":
                 st.session_state.preferiti = []
                 st.session_state.app_mode = "in_asta"
                 st.rerun()
-            else:
-                st.error("❌ Inserisci un nome per l'asta.")
+
+
 
     with col_m2:
         st.subheader("📂 Carica Asta")
@@ -666,114 +1067,141 @@ if st.session_state.app_mode == "menu":
 
             label_to_nome = {_label_asta(row): row["nome_asta"] for row in saved_aste}
             selected_label = st.selectbox("Seleziona Asta Salvata", options=list(label_to_nome.keys()))
-            if st.button("📥 Carica Asta Selezionata", use_container_width=True):
-                if load_asta_from_file(label_to_nome[selected_label]):
-                    st.rerun()
-        else:
-            st.info("Nessuna asta salvata trovata.")
-
-
+            if st.button("📥 Carica Asta Selezionata"):
+                load_asta_from_file(label_to_nome[selected_label])
+                st.rerun()
 # ==========================================
 # ⚽ APPLICAZIONE ASTA
 # ==========================================
 elif st.session_state.app_mode == "in_asta":
 
-    # Script JS iniettato ESCLUSIVAMENTE quando si è in modalità asta
-    components.html(
-        """
-        <script>
-        (function() {
-            const doc = window.parent.document;
-
-            const COMMON_STYLE = {
-                width: '48px',
-                height: '58px',
-                boxSizing: 'border-box',
-                top: '23vh',
-                zIndex: '999999',
-                background: '#0f380f',
-                border: '2px solid #2ecc71',
-                boxShadow: '4px 4px 12px rgba(0,0,0,0.5)',
-            };
-
-            function applyCommon(el, extra) {
-                el.style.setProperty('box-sizing', 'border-box', 'important');
-                el.style.setProperty('width', COMMON_STYLE.width, 'important');
-                el.style.setProperty('height', COMMON_STYLE.height, 'important');
-                el.style.setProperty('top', COMMON_STYLE.top, 'important');
-                el.style.setProperty('z-index', COMMON_STYLE.zIndex, 'important');
-                el.style.setProperty('background', COMMON_STYLE.background, 'important');
-                el.style.setProperty('border', COMMON_STYLE.border, 'important');
-                el.style.setProperty('box-shadow', COMMON_STYLE.boxShadow, 'important');
-                el.style.setProperty('margin', '0', 'important');
-                el.style.setProperty('padding', '0', 'important');
-                el.style.setProperty('display', 'flex', 'important');
-                el.style.setProperty('align-items', 'center', 'important');
-                el.style.setProperty('justify-content', 'center', 'important');
-                el.style.setProperty('cursor', 'pointer', 'important');
-                el.style.setProperty('overflow', 'hidden', 'important');
-                Object.assign(el.style, extra || {});
-            }
-
-            function styleSidebarToggle() {
-                const icons = doc.querySelectorAll('span[data-testid="stIconMaterial"]');
-
-                icons.forEach(span => {
-                    const txt = span.textContent.trim();
-                    const btn = span.closest('button');
-                    if (!btn) return;
-
-                    let lens = btn.querySelector('.custom-lens-icon');
-                    if (!lens) {
-                        lens = doc.createElement('span');
-                        lens.className = 'custom-lens-icon';
-                        lens.style.fontSize = '1.15rem';
-                        lens.style.fontWeight = 'bold';
-                        lens.style.color = '#2ecc71';
-                        lens.style.pointerEvents = 'none';
-                        lens.style.whiteSpace = 'nowrap';
-                        btn.appendChild(lens);
-                    }
-
-                    if (txt === 'keyboard_double_arrow_right') {
-                        btn.style.setProperty('position', 'fixed', 'important');
-                        btn.style.setProperty('left', '0px', 'important');
-                        btn.style.setProperty('right', 'auto', 'important');
-                        btn.style.setProperty('border-left', 'none', 'important');
-                        btn.style.setProperty('border-radius', '0 10px 10px 0', 'important');
-                        applyCommon(btn);
-
-                        span.style.setProperty('display', 'none', 'important');
-                        lens.textContent = '🔍 ›';
-                    }
-
-                    if (txt === 'keyboard_double_arrow_left') {
-                        const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
-                        const sidebarWidth = sidebar ? sidebar.getBoundingClientRect().width : 336;
-
-                        btn.style.setProperty('position', 'fixed', 'important');
-                        btn.style.setProperty('left', sidebarWidth + 'px', 'important');
-                        btn.style.setProperty('right', 'auto', 'important');
-                        btn.style.setProperty('border-left', 'none', 'important');
-                        btn.style.setProperty('border-radius', '0 10px 10px 0', 'important');
-                        applyCommon(btn);
-
-                        span.style.setProperty('display', 'none', 'important');
-                        lens.textContent = '🔍 ‹';
-                    }
-                });
-            }
-
-            const observer = new MutationObserver(styleSidebarToggle);
-            observer.observe(doc.body, { childList: true, subtree: true, attributes: true });
-            styleSidebarToggle();
-        })();
-        </script>
-        """,
-        height=0,
-    )
-
     with st.sidebar:
+        # ---- CSS dedicato alla sidebar ----
+        st.markdown(
+            """
+            <style>
+            .sidebar-user {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 6px 0 2px 0;
+            }
+            .sidebar-avatar {
+                width: 38px;
+                height: 38px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #2ecc71, #145a14);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.1rem;
+                flex-shrink: 0;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            }
+            .sidebar-user-name {
+                font-weight: 700;
+                font-size: 0.95rem;
+                color: #ffffff;
+                line-height: 1.1;
+            }
+            .sidebar-user-sub {
+                font-size: 0.72rem;
+                color: #94a3b8;
+            }
+            .pref-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-top: 4px;
+                margin-bottom: 2px;
+            }
+            .pref-header-title {
+                font-size: 1.05rem;
+                font-weight: 800;
+                color: #ffffff;
+            }
+            .pref-header-count {
+                background: rgba(46,204,113,0.18);
+                color: #2ecc71;
+                font-size: 0.72rem;
+                font-weight: 700;
+                padding: 2px 9px;
+                border-radius: 999px;
+                border: 1px solid rgba(46,204,113,0.4);
+            }
+            .pref-caption {
+                color: #94a3b8;
+                font-size: 0.75rem;
+                margin-bottom: 10px;
+            }
+            .pref-empty-box {
+                background: rgba(255,255,255,0.03);
+                border: 1px dashed rgba(255,255,255,0.15);
+                border-radius: 10px;
+                padding: 16px 10px;
+                text-align: center;
+                color: #94a3b8;
+                font-size: 0.8rem;
+            }
+            [class*="st-key-prefcard__"] {
+                background: rgba(255,255,255,0.035) !important;
+                border: 1px solid rgba(46,204,113,0.15) !important;
+                border-radius: 10px !important;
+                padding: 6px 8px !important;
+                margin-bottom: 6px !important;
+                transition: all 0.15s ease-in-out;
+            }
+            [class*="st-key-prefcard__"]:hover {
+                border-color: rgba(46,204,113,0.45) !important;
+                background: rgba(46,204,113,0.06) !important;
+            }
+            .pref-role-badge {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 24px;
+                height: 24px;
+                border-radius: 7px;
+                font-size: 0.68rem;
+                font-weight: 800;
+                color: #10240f;
+                margin-top: 2px;
+            }
+            .pref-role-P { background: #f1c40f; }
+            .pref-role-D { background: #2ecc71; }
+            .pref-role-C { background: #3498db; color: #06182a; }
+            .pref-role-A { background: #e74c3c; color: #2a0705; }
+            .pref-role-sold { background: #4a5568 !important; color: #cbd5e1 !important; }
+            .pref-name-line {
+                font-size: 0.85rem;
+                font-weight: 700;
+                color: #ffffff;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                line-height: 1.2;
+            }
+            .pref-team-line {
+                font-size: 0.72rem;
+                color: #94a3b8;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .pref-sold .pref-name-line,
+            .pref-sold .pref-team-line {
+                color: #718096 !important;
+                text-decoration: line-through;
+            }
+            [class*="st-key-iconbtn__delpref__"] .stButton > button {
+                font-size: 0.85rem !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # ---- Header utente ----
         st.markdown(
             f"""
             <div class="sidebar-user">
@@ -790,6 +1218,7 @@ elif st.session_state.app_mode == "in_asta":
             do_logout()
         st.divider()
 
+        # ---- Header sezione preferiti ----
         n_pref = len(st.session_state.preferiti)
         st.markdown(
             f"""
@@ -813,11 +1242,13 @@ elif st.session_state.app_mode == "in_asta":
 
                 with st.container(key=f"prefcard__{p_name}"):
                     c_badge, c_info, c_del = st.columns([1, 4.2, 0.9])
+
                     badge_class = "pref-role-sold" if is_sold else f"pref-role-{p_role}"
                     c_badge.markdown(
                         f'<div class="pref-role-badge {badge_class}">{ROLE_LABEL.get(p_role, p_role)}</div>',
                         unsafe_allow_html=True,
                     )
+
                     sold_wrap_open = '<div class="pref-sold">' if is_sold else '<div>'
                     c_info.markdown(
                         f"{sold_wrap_open}"
@@ -826,6 +1257,7 @@ elif st.session_state.app_mode == "in_asta":
                         f"</div>",
                         unsafe_allow_html=True,
                     )
+
                     with c_del:
                         with st.container(key=f"iconbtn__delpref__{p_name}"):
                             if st.button("✕", key=f"del_pref_{p_name}"):
@@ -837,6 +1269,7 @@ elif st.session_state.app_mode == "in_asta":
                 unsafe_allow_html=True,
             )
 
+    # HEADER APPLICAZIONE
     col_head1, col_head2, col_head3 = st.columns([3, 1, 1])
 
     with col_head1:
@@ -861,8 +1294,11 @@ elif st.session_state.app_mode == "in_asta":
             st.session_state.app_mode = "menu"
             st.rerun()
 
+
     # ==========================================
-    # BARRA STICKY: NAVIGAZIONE + ASSEGNAZIONE
+    # BARRA STICKY: NAVIGAZIONE PAGINE + RICERCA/ASSEGNAZIONE GIOCATORE
+    # (sostituisce sia la vecchia "BARRA DI RICERCA STICKY IN ALTO"
+    #  sia la vecchia "NAVIGAZIONE SCHERMATE")
     # ==========================================
     modalita = st.session_state.asta_state.get("modalita", "tutte")
     mia_squadra_nome = st.session_state.asta_state.get("mia_squadra_nome")
@@ -876,6 +1312,7 @@ elif st.session_state.app_mode == "in_asta":
     with st.container():
         st.markdown('<div class="sticky-header-marker" style="display:none;"></div>', unsafe_allow_html=True)
 
+        # ---- Riga di navigazione tra le pagine ----
         col_nav_left, col_nav_title, col_nav_right = st.columns([1, 4, 1])
 
         with col_nav_left:
@@ -901,6 +1338,7 @@ elif st.session_state.app_mode == "in_asta":
 
         st.markdown("<hr style='margin:8px 0; border-color:rgba(255,255,255,0.15);'>", unsafe_allow_html=True)
 
+        # ---- Riga di ricerca / assegnazione giocatore ----
         col_player, col_squadra, col_prezzo, col_btn = st.columns([4, 2, 1, 1])
 
         giocatori_liberi = listone_df[~listone_df["Nome"].isin(st.session_state.asta_state["giocatori_acquistati"].keys())]
@@ -936,7 +1374,6 @@ elif st.session_state.app_mode == "in_asta":
                 )
             else:
                 squadra_dest = st.selectbox("Assegna a Squadra", options=list(st.session_state.asta_state["squadre"].keys()))
-        
         with col_prezzo:
             prezzo_acquisto = st.number_input("Prezzo (Cr)", min_value=1, value=1)
 
@@ -999,12 +1436,97 @@ elif st.session_state.app_mode == "in_asta":
     st.divider()
 
     # ==========================================
-    # SCHERMATA 1: LISTONE MASTER DATA
+    # SCHERMATA 1: LISTONE MASTER DATA — VERDE SCURO / TESTO BIANCO
     # ==========================================
     if st.session_state.asta_state["current_page"] == 0:
+
+        # Inizializza lo stato del filtro rapido dalle carte metriche
         if "metric_filter" not in st.session_state:
             st.session_state.metric_filter = "Totale"
 
+        # ---- CSS dedicato alla pagina Listone ----
+        st.markdown(
+            """
+            <style>
+            .listone-hero {
+                background: linear-gradient(135deg, rgba(46,204,113,0.15), rgba(15,56,15,0.4));
+                border: 1px solid rgba(46,204,113,0.35);
+                border-radius: 16px;
+                padding: 18px 22px;
+                margin-bottom: 18px;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+            }
+            .listone-hero h2 {
+                margin: 0 0 4px 0;
+                font-size: 1.6rem;
+            }
+            .listone-hero p {
+                margin: 0;
+                color: #cbd5e1;
+                font-size: 0.9rem;
+            }
+
+            /* ---- PULSANTI METRICA SUPERIORI: VERDE SCURO PIENO + TESTO BIANCO ---- */
+            div[class*="st-key-metric_btn_"] .stButton > button {
+                width: 100% !important;
+                height: 85px !important;
+                background-color: #123d12 !important;
+                background-image: none !important;
+                border: 1.5px solid #2ecc71 !important;
+                border-radius: 14px !important;
+                padding: 8px !important;
+                color: #ffffff !important;
+                font-weight: 700 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                justify-content: center !important;
+                box-shadow: 0 4px 14px rgba(0,0,0,0.45) !important;
+                transition: all 0.2s ease-in-out !important;
+                white-space: pre-line !important;
+            }
+            div[class*="st-key-metric_btn_"] .stButton > button:hover {
+                background-color: #1c6b1c !important;
+                transform: translateY(-2px) !important;
+                border-color: #2ecc71 !important;
+                box-shadow: 0 6px 18px rgba(46,204,113,0.35) !important;
+                color: #ffffff !important;
+            }
+            div[class*="st-key-metric_btn_"] .stButton > button * {
+                color: #ffffff !important;
+            }
+
+            /* ---- FILTRO RUOLO A PILLOLE: VERDE SCURO + TESTO BIANCO ---- */
+            div[data-testid="stSegmentedControl"] button {
+                background-color: #123d12 !important;
+                color: #ffffff !important;
+                border: 1px solid rgba(46,204,113,0.5) !important;
+            }
+            div[data-testid="stSegmentedControl"] button[aria-checked="true"],
+            div[data-testid="stSegmentedControl"] button[data-selected="true"] {
+                background-color: #2ecc71 !important;
+                color: #0f380f !important;
+                font-weight: 800 !important;
+            }
+
+            /* ---- CONTENITORE TABELLA: VERDE SCURO ---- */
+            [data-testid="stDataEditor"] {
+                background-color: #0d2b0d !important;
+                border: 1.5px solid #2ecc71 !important;
+                border-radius: 14px !important;
+                padding: 6px !important;
+                box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+            }
+            /* NB: i colori INTERNI della griglia (celle, header, testo) sono renderizzati
+               su canvas dentro un iframe e NON sono controllabili da qui via CSS.
+               Per avere davvero verde scuro + testo bianco anche dentro la tabella,
+               vedi il file config.toml allegato (tema nativo di Streamlit). */
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # ---- Header ----
         st.markdown(
             """
             <div class="listone-hero">
@@ -1015,6 +1537,7 @@ elif st.session_state.app_mode == "in_asta":
             unsafe_allow_html=True,
         )
 
+        # ---- Statistiche rapide interattive (Pulsanti) ----
         totale_giocatori = len(listone_df)
         venduti = len(st.session_state.asta_state["giocatori_acquistati"])
         liberi = totale_giocatori - venduti
@@ -1031,12 +1554,17 @@ elif st.session_state.app_mode == "in_asta":
         for col, (filter_key, label, value) in zip(stat_cols, stats):
             with col:
                 with st.container(key=f"metric_btn_{filter_key}"):
-                    if st.button(f"{label}\n{value}", key=f"btn_stat_{filter_key}", use_container_width=True):
+                    if st.button(
+                        f"{label}\n{value}",
+                        key=f"btn_stat_{filter_key}",
+                        use_container_width=True,
+                    ):
                         st.session_state.metric_filter = filter_key
                         st.rerun()
 
         st.write("")
 
+        # ---- Filtri: ruolo (pillole) + ordinamento ----
         ROLE_LABELS = {
             "Tutti": "Tutti",
             "P": "🟨 Portieri",
@@ -1063,9 +1591,10 @@ elif st.session_state.app_mode == "in_asta":
         with col_order:
             sort_desc = st.toggle("Decrescente", value=True)
 
+        # ---- Applica filtri sulla tabella ----
         df_display = listone_df.copy()
-        m_filter = st.session_state.metric_filter
 
+        m_filter = st.session_state.metric_filter
         if m_filter == "Liberi":
             df_display = df_display[~df_display["Nome"].isin(st.session_state.asta_state["giocatori_acquistati"].keys())]
         elif m_filter == "Venduti":
@@ -1082,6 +1611,7 @@ elif st.session_state.app_mode == "in_asta":
 
         df_display = df_display.sort_values(by=sort_by, ascending=not sort_desc)
 
+        # ---- Colonne calcolate / badge visivi ----
         ROLE_BADGE = {"P": "🟨 P", "D": "🟩 D", "C": "🟦 C", "A": "🟥 A"}
         df_display["Ruolo"] = df_display["R"].map(ROLE_BADGE).fillna(df_display["R"])
         df_display["Preferito"] = df_display["Nome"].apply(lambda x: x in st.session_state.preferiti)
@@ -1117,6 +1647,7 @@ elif st.session_state.app_mode == "in_asta":
                 key=f"listone_editor_{m_filter}_{ruolo_filter}_{sort_by}_{sort_desc}",
             )
 
+            # ---- Sincronizzazione preferiti con il session_state ----
             current_favs = set(st.session_state.preferiti)
             changed = False
             for _, row in edited_df.iterrows():
@@ -1131,18 +1662,18 @@ elif st.session_state.app_mode == "in_asta":
             if changed:
                 st.rerun()
 
-    # ==========================================
-    # SCHERMATA 2: PROBABILI FORMAZIONI
-    # ==========================================
+    # SCHERMATA 2: PROBABILI FORMAZIONI (CON CONTROLLO ACQUISTO SUL SECONDO DEL BALLOTTAGGIO)
     elif st.session_state.asta_state["current_page"] == 1:
         st.header("🏟️ Probabili Formazioni Campionato Serie A")
 
         @st.fragment
         def render_team_pitch_fragment(row):
             st.subheader(row["Squadra"])
+            
             import re
             players = [re.sub(r'\(.*?\)', '', p).replace("•", "").strip() for p in str(row["Titolari (con %)"]).split('\n') if p.strip()]
 
+            # --- PARSING BALLOTTAGGI ---
             ballottaggi_map = {}
             raw_ball = str(row.get("Ballottaggi principali", ""))
             if raw_ball and raw_ball.lower() != "nan":
@@ -1178,13 +1709,16 @@ elif st.session_state.app_mode == "in_asta":
             svg_defs = []
             role_colors = {'P': '#f1c40f', 'D': '#2ecc71', 'C': '#3498db', 'A': '#e74c3c'}
 
+            # --- FUNZIONE COLORAZIONE ROBUSTA (VERIFICA SE ACQUISTATO SIA IL TITOLARE CHE LA RISERVA) ---
             def get_player_color(p_name, default_role):
                 clean_p_name = p_name.strip()
                 acquistati = st.session_state.asta_state["giocatori_acquistati"]
                 
+                # Check 1: Corrispondenza esatta
                 if clean_p_name in acquistati:
                     return '#7f8c8d'
                 
+                # Check 2: Corrispondenza parziale per gestire eventuali differenze di formattazione
                 for acq_p in acquistati:
                     if clean_p_name.lower() in acq_p.lower() or acq_p.lower() in clean_p_name.lower():
                         return '#7f8c8d'
@@ -1192,14 +1726,17 @@ elif st.session_state.app_mode == "in_asta":
                 p_role = PLAYER_TO_ROLE.get(clean_p_name, default_role)
                 return role_colors.get(p_role, '#3498db')
 
+            # --- TRACCIATO CAMPO ---
             svg_html = (
                 '<div style="text-align:center;"><svg width="100%" height="430" viewBox="0 0 100 135" preserveAspectRatio="xMidYMid meet" style="background:#1e7145; border-radius:8px;">'
                 '<rect x="0" y="0" width="100" height="135" fill="#1e7145" stroke="#f1c40f" stroke-width="1.0"/>'
                 '<line x1="0" y1="67.5" x2="100" y2="67.5" stroke="#f1c40f" stroke-width="1"/>'
                 '<circle cx="50" cy="67.5" r="14" stroke="#f1c40f" stroke-width="1" fill="none"/>'
+                
                 '<rect x="18" y="0" width="64" height="28" stroke="#f1c40f" stroke-width="1" fill="none"/>'
                 '<rect x="34" y="0" width="32" height="10" stroke="#f1c40f" stroke-width="1" fill="none"/>'
                 '<path d="M 38 28 A 12 12 0 0 0 62 28" stroke="#f1c40f" stroke-width="1" fill="none"/>'
+                
                 '<rect x="18" y="107" width="64" height="28" stroke="#f1c40f" stroke-width="1" fill="none"/>'
                 '<rect x="34" y="125" width="32" height="10" stroke="#f1c40f" stroke-width="1" fill="none"/>'
                 '<path d="M 38 107 A 12 12 0 0 1 62 107" stroke="#f1c40f" stroke-width="1" fill="none"/>'
@@ -1209,6 +1746,7 @@ elif st.session_state.app_mode == "in_asta":
                 def build_player_svg(p_name, x, y, default_role, node_idx):
                     nonlocal svg_defs
                     p_pref = "⭐" if p_name in st.session_state.preferiti else ""
+
                     text_style = 'font-size="4.2" font-weight="bold" text-anchor="middle" fill="white" stroke="black" stroke-width="0.4" paint-order="stroke fill"'
 
                     if p_name in ballottaggi_map:
@@ -1216,10 +1754,12 @@ elif st.session_state.app_mode == "in_asta":
                         sub_name = ball_info["sub"]
                         pct1 = ball_info["pct1"]
 
+                        # Richiama la funzione di controllo colore per ENTRAMBI i calciatori
                         c_fill1 = get_player_color(p_name, default_role)
                         c_fill2 = get_player_color(sub_name, default_role)
 
                         sub_pref = "⭐" if sub_name in st.session_state.preferiti else ""
+
                         clean_team = re.sub(r'[^a-zA-Z0-9]', '', str(row['Squadra']))
                         grad_id = f"ballgrad_{clean_team}_{node_idx}"
                         
@@ -1233,6 +1773,7 @@ elif st.session_state.app_mode == "in_asta":
                         )
 
                         node_html = f'<circle cx="{x}" cy="{y}" r="6.5" fill="url(#{grad_id})" stroke="black" stroke-width="1.0"/>'
+                        
                         text1 = f'<text x="{x}" y="{y+8.0}" {text_style}>{p_name[:12]} {p_pref}</text>'
                         text2 = f'<text x="{x}" y="{y+12.5}" {text_style}>/{sub_name[:12]} {sub_pref}</text>'
                         return node_html + text1 + text2
@@ -1244,6 +1785,7 @@ elif st.session_state.app_mode == "in_asta":
 
                 portiere = players[0]
                 movimento = players[1:]
+
                 pitch_elements = [build_player_svg(portiere, 50, 8, 'P', 0)]
 
                 lines_schema = [int(n) for n in str(row["Modulo"]).split('-') if n.isdigit()]
@@ -1282,10 +1824,71 @@ elif st.session_state.app_mode == "in_asta":
                     with cols[col_idx]:
                         render_team_pitch_fragment(row)
 
+
     # ==========================================
-    # SCHERMATA 3: FANTAROSE
+    # SCHERMATA 3: FANTAROSE — VERSIONE COMPATTA
     # ==========================================
     elif st.session_state.asta_state["current_page"] == 2:
+
+        # ---- CSS: pulsante download + layout compatto card squadra ----
+        st.markdown(
+            """
+            <style>
+            [data-testid="stDownloadButton"] > button {
+                background-color: #2d3748 !important;
+                color: #ffffff !important;
+                border: 1px solid #4a5568 !important;
+                border-radius: 8px !important;
+                font-weight: bold !important;
+                box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.4) !important;
+            }
+            [data-testid="stDownloadButton"] > button:hover {
+                background-color: #4a5568 !important;
+                color: #2ecc71 !important;
+                border-color: #2ecc71 !important;
+            }
+
+            /* Compatta il layout nelle card squadra */
+            [class*="st-key-teamcard__"] [data-testid="stVerticalBlock"],
+            [class*="st-key-teamcard__"] div[data-testid="stVerticalBlock"] {
+                gap: 0px !important;
+                row-gap: 0px !important;
+            }
+            [class*="st-key-teamcard__"] [data-testid="stElementContainer"],
+            [class*="st-key-teamcard__"] div[data-testid="stElementContainer"] {
+                margin: 0px !important;
+                padding: 0px !important;
+            }
+            [class*="st-key-teamcard__"] .stMarkdown {
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            /* Lista e righe calciatori (solo testo, ultra-compatto) */
+            .player-list {
+                display: flex;
+                flex-direction: column;
+                gap: 0px !important;
+                margin: 0 0 6px 0 !important;
+                padding: 0 !important;
+            }
+            .player-row {
+                font-size: 0.81rem !important;
+                color: #ffffff !important;
+                padding: 1px 0px !important;
+                margin: 0px !important;
+                line-height: 1.25 !important;
+                border-bottom: 1px dashed rgba(255, 255, 255, 0.09) !important;
+                display: block !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # ---- Header compatto: titolo + pulsante export CSV ----
         col_title3, col_export3 = st.columns([5, 1])
         with col_title3:
             st.header("Gestione Partecipanti Asta & Crediti")
@@ -1313,6 +1916,7 @@ elif st.session_state.app_mode == "in_asta":
                 use_container_width=True,
             )
 
+        # POP-UP MODALI IN SOVRAIMPRESSIONE
         if st.session_state.confirm_delete_team:
             dialog_delete_team(st.session_state.confirm_delete_team)
 
@@ -1321,6 +1925,7 @@ elif st.session_state.app_mode == "in_asta":
 
         st.divider()
 
+        # ---- Rose delle Squadre (4 Colonne) ----
         role_names = {"P": "Portieri", "D": "Difensori", "C": "Centrocampisti", "A": "Attaccanti"}
         teams_items = list(st.session_state.asta_state["squadre"].items())
 
@@ -1328,10 +1933,12 @@ elif st.session_state.app_mode == "in_asta":
             cols = st.columns(4)
             for col_idx, (team, data) in enumerate(teams_items[i:i+4]):
                 with cols[col_idx]:
+
                     color_idx = (i + col_idx) % len(CARD_BORDER_COLORS)
                     b_color = CARD_BORDER_COLORS[color_idx]
 
                     with st.container(key=f"teamcard__c{color_idx}__{team}", border=True):
+
                         c_title, c_edit, c_del = st.columns([5, 1, 1])
                         c_title.markdown(
                             f"<div style='color:{b_color}; font-size: 1.1rem; font-weight: bold; padding-top: 4px;'> {team}</div>",
@@ -1350,12 +1957,14 @@ elif st.session_state.app_mode == "in_asta":
                                     st.session_state.confirm_delete_team = team
                                     st.rerun()
 
+                        # Form In-Line di Modifica (Rinomina e Svincolo Calciatori)
                         if st.session_state.editing_team == team:
                             st.caption("✏️ **Rinomina Squadra:**")
                             renamed_val = st.text_input("Nuovo nome:", value=team, key=f"inp_rename_{team}", label_visibility="collapsed")
                             if st.button("Salva Nome", key=f"save_rename_{team}", use_container_width=True):
                                 if renamed_val.strip() and renamed_val.strip() != team and renamed_val.strip() not in st.session_state.asta_state["squadre"]:
                                     new_name = renamed_val.strip()
+
                                     new_squadre = {}
                                     for k, v in st.session_state.asta_state["squadre"].items():
                                         if k == team:
@@ -1437,6 +2046,7 @@ elif st.session_state.app_mode == "in_asta":
                                         unsafe_allow_html=True,
                                     )
 
+        # ---- Aggiungi Nuova Squadra: compatto, in fondo ----
         st.divider()
         with st.expander("➕ Aggiungi Nuova Squadra"):
             col_n, col_b, col_a = st.columns([3, 2, 1])
