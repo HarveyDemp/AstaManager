@@ -327,7 +327,6 @@ st.markdown(
         opacity: 1 !important;
         visibility: visible !important;
     }
-
     /* Sticky Top Container per la barra dell'asta */
     div[data-testid="stVerticalBlock"] > div:has(div.sticky-header-marker):has([data-testid="stHorizontalBlock"]) {
         position: sticky;
@@ -521,12 +520,9 @@ components.html(
             el.style.setProperty('justify-content', 'center', 'important');
             el.style.setProperty('cursor', 'pointer', 'important');
             el.style.setProperty('overflow', 'hidden', 'important');
-            el.style.setProperty('opacity', '1', 'important');
-            el.style.setProperty('visibility', 'visible', 'important');
-            el.style.setProperty('pointer-events', 'auto', 'important');
         }
 
-        function positionLeftButton() {
+        function styleSidebarToggle() {
             const icons = doc.querySelectorAll('span[data-testid="stIconMaterial"]');
 
             icons.forEach(span => {
@@ -534,6 +530,10 @@ components.html(
                 const btn = span.closest('button');
                 if (!btn) return;
                 if (txt !== 'keyboard_double_arrow_right' && txt !== 'keyboard_double_arrow_left') return;
+
+                // Marca il bottone come già processato: se questa run non deve
+                // ricalcolare nulla di dinamico, saltiamo subito per evitare lavoro inutile.
+                const alreadyDone = btn.getAttribute('data-styled-toggle') === txt;
 
                 let lens = btn.querySelector('.custom-lens-icon');
                 if (!lens) {
@@ -546,67 +546,54 @@ components.html(
                     lens.style.whiteSpace = 'nowrap';
                     btn.appendChild(lens);
                 }
-                span.style.setProperty('display', 'none', 'important');
 
                 if (txt === 'keyboard_double_arrow_right') {
-                    btn.style.setProperty('position', 'fixed', 'important');
-                    btn.style.setProperty('left', '0px', 'important');
-                    btn.style.setProperty('right', 'auto', 'important');
-                    btn.style.setProperty('border-left', 'none', 'important');
-                    btn.style.setProperty('border-radius', '0 10px 10px 0', 'important');
-                    applyCommon(btn);
-                    lens.textContent = '🔍 ›';
+                    if (!alreadyDone) {
+                        btn.style.setProperty('position', 'fixed', 'important');
+                        btn.style.setProperty('left', '0px', 'important');
+                        btn.style.setProperty('right', 'auto', 'important');
+                        btn.style.setProperty('border-left', 'none', 'important');
+                        btn.style.setProperty('border-radius', '0 10px 10px 0', 'important');
+                        applyCommon(btn);
+                        span.style.setProperty('display', 'none', 'important');
+                        lens.textContent = '🔍 ›';
+                        btn.setAttribute('data-styled-toggle', txt);
+                    }
                 }
 
                 if (txt === 'keyboard_double_arrow_left') {
+                    // Qui SERVE ricalcolare la larghezza della sidebar ogni volta
+                    // (può cambiare), quindi non blocchiamo con il flag "alreadyDone".
                     const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
                     const sidebarWidth = sidebar ? sidebar.getBoundingClientRect().width : 336;
                     const newLeft = sidebarWidth + 'px';
 
-                    btn.style.setProperty('position', 'fixed', 'important');
-                    btn.style.setProperty('left', newLeft, 'important');
-                    btn.style.setProperty('right', 'auto', 'important');
-                    btn.style.setProperty('border-left', 'none', 'important');
-                    btn.style.setProperty('border-radius', '0 10px 10px 0', 'important');
-                    applyCommon(btn);
-                    lens.textContent = '🔍 ‹';
+                    // Applichiamo SOLO se il valore è effettivamente cambiato,
+                    // per non generare mutazioni inutili.
+                    if (btn.style.left !== newLeft) {
+                        btn.style.setProperty('position', 'fixed', 'important');
+                        btn.style.setProperty('left', newLeft, 'important');
+                        btn.style.setProperty('right', 'auto', 'important');
+                        btn.style.setProperty('border-left', 'none', 'important');
+                        btn.style.setProperty('border-radius', '0 10px 10px 0', 'important');
+                        applyCommon(btn);
+                        span.style.setProperty('display', 'none', 'important');
+                        lens.textContent = '🔍 ‹';
+                    }
                 }
             });
         }
 
-        // ---- Reagisce ai nodi aggiunti/rimossi dal DOM (rerun di Streamlit) ----
-        const mutationObserver = new MutationObserver(positionLeftButton);
-        mutationObserver.observe(doc.body, { childList: true, subtree: true });
-
-        // ---- Reagisce ai cambi di DIMENSIONE della sidebar, incluse le
-        //      animazioni CSS di apertura/chiusura (che NON generano mutazioni DOM) ----
-        let resizeObserverAttached = false;
-        function attachResizeObserver() {
-            if (resizeObserverAttached) return;
-            const sidebar = doc.querySelector('section[data-testid="stSidebar"]');
-            if (!sidebar) return;
-
-            const ro = new ResizeObserver(() => {
-                positionLeftButton();
-            });
-            ro.observe(sidebar);
-            resizeObserverAttached = true;
-        }
-
-        // Prova subito e poi ad ogni mutazione, finché la sidebar non è trovata
-        const attachTryObserver = new MutationObserver(() => {
-            attachResizeObserver();
-        });
-        attachTryObserver.observe(doc.body, { childList: true, subtree: true });
-
-        attachResizeObserver();
-        positionLeftButton();
+        // NIENTE "attributes: true": osserviamo solo l'aggiunta/rimozione di nodi,
+        // non le modifiche di stile che facciamo noi stessi (altrimenti loop infinito).
+        const observer = new MutationObserver(styleSidebarToggle);
+        observer.observe(doc.body, { childList: true, subtree: true });
+        styleSidebarToggle();
     })();
     </script>
     """,
     height=0,
 )
-
 SQUADRA_ABBR = {
     "Atalanta": "ATA", "Bologna": "BOL", "Cagliari": "CAG", "Como": "COM",
     "Fiorentina": "FIO", "Frosinone": "FRO", "Genoa": "GEN", "Inter": "INT",
