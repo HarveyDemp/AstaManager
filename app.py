@@ -306,12 +306,28 @@ st.markdown(
 
     [data-testid="stSidebarCollapseButton"] {
         position: static !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
     }
 
     [data-testid="stSidebarCollapseButton"] button {
         background: transparent !important;
         border: none !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
     }
+
+    /* Copre anche eventuali contenitori intermedi che Streamlit
+       potrebbe usare per nascondere il pulsante fuori hover */
+    [data-testid="stSidebarCollapseButton"] *,
+    [data-testid="stSidebarCollapseButton"]:hover,
+    [data-testid="stSidebarCollapseButton"]:not(:hover) {
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    
     /* Sticky Top Container per la barra dell'asta */
     div[data-testid="stVerticalBlock"] > div:has(div.sticky-header-marker):has([data-testid="stHorizontalBlock"]) {
         position: sticky;
