@@ -607,7 +607,6 @@ components.html(
     height=0,
 )
 
-
 SQUADRA_ABBR = {
     "Atalanta": "ATA", "Bologna": "BOL", "Cagliari": "CAG", "Como": "COM",
     "Fiorentina": "FIO", "Frosinone": "FRO", "Genoa": "GEN", "Inter": "INT",
